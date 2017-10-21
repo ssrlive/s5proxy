@@ -57,7 +57,11 @@ int main(int argc, char **argv) {
 }
 
 const char *_getprogname(void) {
+#if defined(_MSC_VER)
+    return strrchr(progname, '\\') + 1;
+#else
     return progname;
+#endif // defined(_MSC_VER)
 }
 
 static void parse_opts(server_config *cf, int argc, char **argv) {
