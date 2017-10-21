@@ -34,7 +34,7 @@ struct server_state {
     uv_loop_t *loop;
 };
 
-static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
+static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
 static void on_listener_cb(uv_stream_t *server, int status);
 
 int server_run(struct server_config *cf, uv_loop_t *loop) {
@@ -58,13 +58,13 @@ int server_run(struct server_config *cf, uv_loop_t *loop) {
     uv_getaddrinfo_t *req = (uv_getaddrinfo_t *)malloc(sizeof(*req));
     req->data = state;
 
-    err = uv_getaddrinfo(loop, req, do_bind, cf->bind_host, NULL, &hints);
+    err = uv_getaddrinfo(loop, req, on_bind_cb, cf->bind_host, NULL, &hints);
     if (err != 0) {
         pr_err("getaddrinfo: %s", uv_strerror(err));
         return err;
     }
 
-    /* Start the event loop.  Control continues in do_bind(). */
+    /* Start the event loop.  Control continues in on_bind_cb(). */
     if (uv_run(loop, UV_RUN_DEFAULT)) {
         abort();
     }
@@ -81,7 +81,7 @@ int server_run(struct server_config *cf, uv_loop_t *loop) {
 }
 
 /* Bind a server to each address that getaddrinfo() reported. */
-static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
+static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
     char addrbuf[INET6_ADDRSTRLEN + 1];
     unsigned int ipv4_naddrs;
     unsigned int ipv6_naddrs;
