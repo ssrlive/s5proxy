@@ -44,7 +44,7 @@ typedef size_t uv_buf_len_t;
 
 
 struct server_config {
-    const char *bind_host;
+    char *bind_host;
     unsigned short bind_port;
     unsigned int idle_timeout;
 };
@@ -90,7 +90,7 @@ struct client_ctx {
 };
 
 /* server.c */
-int server_run(const struct server_config *cf, uv_loop_t *loop);
+int server_run(struct server_config *cf, uv_loop_t *loop);
 int can_auth_none(const struct server_ctx *sx, const struct client_ctx *cx);
 int can_auth_passwd(const struct server_ctx *sx, const struct client_ctx *cx);
 int can_access(const struct server_ctx *sx,

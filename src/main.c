@@ -38,17 +38,18 @@ static void usage(void);
 static const char *progname = __FILE__;  /* Reset in main(). */
 
 int main(int argc, char **argv) {
-    struct server_config config;
+    struct server_config *config;
     int err;
 
     progname = argv[0];
-    memset(&config, 0, sizeof(config));
-    config.bind_host = DEFAULT_BIND_HOST;
-    config.bind_port = DEFAULT_BIND_PORT;
-    config.idle_timeout = DEFAULT_IDLE_TIMEOUT;
-    parse_opts(&config, argc, argv);
 
-    err = server_run(&config, uv_default_loop());
+    config = (struct server_config *) calloc(1, sizeof(*config));
+    config->bind_host = strdup(DEFAULT_BIND_HOST);
+    config->bind_port = DEFAULT_BIND_PORT;
+    config->idle_timeout = DEFAULT_IDLE_TIMEOUT;
+    parse_opts(config, argc, argv);
+
+    err = server_run(config, uv_default_loop());
     if (err) {
         exit(1);
     }
@@ -70,7 +71,10 @@ static void parse_opts(struct server_config *cf, int argc, char **argv) {
     while (-1 != (opt = getopt(argc, argv, "b:H:hp:"))) {
         switch (opt) {
         case 'b':
-            cf->bind_host = optarg;
+            if (cf->bind_host) {
+                free(cf->bind_host);
+            }
+            cf->bind_host = strdup(optarg);
             break;
 
         case 'p':

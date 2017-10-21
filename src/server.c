@@ -28,25 +28,24 @@
 # define INET6_ADDRSTRLEN 63
 #endif
 
-typedef struct {
-    uv_getaddrinfo_t getaddrinfo_req;
-    struct server_config config;
+struct server_state {
+    struct server_config *config;
     struct server_ctx *servers;
     uv_loop_t *loop;
-} server_state;
+};
 
 static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
-static void on_connection(uv_stream_t *server, int status);
+static void on_listener_cb(uv_stream_t *server, int status);
 
-int server_run(const struct server_config *cf, uv_loop_t *loop) {
+int server_run(struct server_config *cf, uv_loop_t *loop) {
     struct addrinfo hints;
-    server_state state;
+    struct server_state *state;
     int err;
 
-    memset(&state, 0, sizeof(state));
-    state.servers = NULL;
-    state.config = *cf;
-    state.loop = loop;
+    state = (struct server_state *) calloc(1, sizeof(*state));
+    state->servers = NULL;
+    state->config = cf;
+    state->loop = loop;
 
     /* Resolve the address of the interface that we should bind to.
     * The getaddrinfo callback starts the server and everything else.
@@ -56,7 +55,10 @@ int server_run(const struct server_config *cf, uv_loop_t *loop) {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    err = uv_getaddrinfo(loop, &state.getaddrinfo_req, do_bind, cf->bind_host, NULL, &hints);
+    uv_getaddrinfo_t *req = (uv_getaddrinfo_t *)malloc(sizeof(*req));
+    req->data = state;
+
+    err = uv_getaddrinfo(loop, req, do_bind, cf->bind_host, NULL, &hints);
     if (err != 0) {
         pr_err("getaddrinfo: %s", uv_strerror(err));
         return err;
@@ -69,7 +71,12 @@ int server_run(const struct server_config *cf, uv_loop_t *loop) {
 
     /* Please Valgrind. */
     uv_loop_delete(loop);
-    free(state.servers);
+
+    free(state->config->bind_host);
+    free(state->config);
+    free(state->servers);
+    free(state);
+
     return 0;
 }
 
@@ -78,8 +85,8 @@ static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
     char addrbuf[INET6_ADDRSTRLEN + 1];
     unsigned int ipv4_naddrs;
     unsigned int ipv6_naddrs;
-    server_state *state;
-    struct server_config *cf;
+    struct server_state *state;
+    const struct server_config *cf;
     struct addrinfo *ai;
     const void *addrv;
     const char *what;
@@ -93,9 +100,12 @@ static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
         struct sockaddr_in6 addr6;
     } s;
 
-    state = CONTAINER_OF(req, server_state, getaddrinfo_req);
+    state = (struct server_state *) req->data;
+    ASSERT(state);
     loop = state->loop;
-    cf = &state->config;
+    cf = state->config;
+
+    free(req);
 
     if (status < 0) {
         pr_err("getaddrinfo(\"%s\"): %s", cf->bind_host, uv_strerror(status));
@@ -145,14 +155,14 @@ static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
 
         sx = state->servers + n;
         sx->loop = loop;
-        sx->idle_timeout = state->config.idle_timeout;
+        sx->idle_timeout = state->config->idle_timeout;
         CHECK(0 == uv_tcp_init(loop, &sx->tcp_handle));
 
         what = "uv_tcp_bind";
         err = uv_tcp_bind(&sx->tcp_handle, &s.addr, 0);
         if (err == 0) {
             what = "uv_listen";
-            err = uv_listen((uv_stream_t *)&sx->tcp_handle, 128, on_connection);
+            err = uv_listen((uv_stream_t *)&sx->tcp_handle, 128, on_listener_cb);
         }
 
         if (err != 0) {
@@ -171,7 +181,7 @@ static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
     uv_freeaddrinfo(addrs);
 }
 
-static void on_connection(uv_stream_t *server, int status) {
+static void on_listener_cb(uv_stream_t *server, int status) {
     struct server_ctx *sx;
     struct client_ctx *cx;
 
