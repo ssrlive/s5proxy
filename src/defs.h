@@ -43,21 +43,19 @@ typedef size_t uv_buf_len_t;
 #endif // defined(_MSC_VER)
 
 
-struct client_ctx;
-
-typedef struct {
+struct server_config {
     const char *bind_host;
     unsigned short bind_port;
     unsigned int idle_timeout;
-} server_config;
+};
 
-typedef struct {
+struct server_ctx {
     unsigned int idle_timeout;  /* Connection idle timeout in ms. */
     uv_tcp_t tcp_handle;
     uv_loop_t *loop;
-} server_ctx;
+};
 
-typedef struct {
+struct conn {
     unsigned char rdstate;
     unsigned char wrstate;
     unsigned int idle_timeout;
@@ -81,26 +79,26 @@ typedef struct {
         struct sockaddr addr;
         char buf[2048];  /* Scratch space. Used to read data into. */
     } t;
-} conn;
+};
 
-typedef struct client_ctx {
+struct client_ctx {
     unsigned int state;
-    server_ctx *sx;  /* Backlink to owning server context. */
+    struct server_ctx *sx;  /* Backlink to owning server context. */
     s5_ctx parser;  /* The SOCKS protocol parser. */
-    conn incoming;  /* Connection with the SOCKS client. */
-    conn outgoing;  /* Connection with upstream. */
-} client_ctx;
+    struct conn incoming;  /* Connection with the SOCKS client. */
+    struct conn outgoing;  /* Connection with upstream. */
+};
 
 /* server.c */
-int server_run(const server_config *cf, uv_loop_t *loop);
-int can_auth_none(const server_ctx *sx, const client_ctx *cx);
-int can_auth_passwd(const server_ctx *sx, const client_ctx *cx);
-int can_access(const server_ctx *sx,
-    const client_ctx *cx,
+int server_run(const struct server_config *cf, uv_loop_t *loop);
+int can_auth_none(const struct server_ctx *sx, const struct client_ctx *cx);
+int can_auth_passwd(const struct server_ctx *sx, const struct client_ctx *cx);
+int can_access(const struct server_ctx *sx,
+    const struct client_ctx *cx,
     const struct sockaddr *addr);
 
 /* client.c */
-void client_finish_init(server_ctx *sx, client_ctx *cx);
+void client_finish_init(struct server_ctx *sx, struct client_ctx *cx);
 
 /* util.c */
 #if defined(__GNUC__)

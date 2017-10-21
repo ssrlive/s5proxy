@@ -30,15 +30,15 @@
 
 typedef struct {
     uv_getaddrinfo_t getaddrinfo_req;
-    server_config config;
-    server_ctx *servers;
+    struct server_config config;
+    struct server_ctx *servers;
     uv_loop_t *loop;
 } server_state;
 
 static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
 static void on_connection(uv_stream_t *server, int status);
 
-int server_run(const server_config *cf, uv_loop_t *loop) {
+int server_run(const struct server_config *cf, uv_loop_t *loop) {
     struct addrinfo hints;
     server_state state;
     int err;
@@ -79,12 +79,12 @@ static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
     unsigned int ipv4_naddrs;
     unsigned int ipv6_naddrs;
     server_state *state;
-    server_config *cf;
+    struct server_config *cf;
     struct addrinfo *ai;
     const void *addrv;
     const char *what;
     uv_loop_t *loop;
-    server_ctx *sx;
+    struct server_ctx *sx;
     unsigned int n;
     int err;
     union {
@@ -172,26 +172,26 @@ static void do_bind(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
 }
 
 static void on_connection(uv_stream_t *server, int status) {
-    server_ctx *sx;
-    client_ctx *cx;
+    struct server_ctx *sx;
+    struct client_ctx *cx;
 
     CHECK(status == 0);
-    sx = CONTAINER_OF(server, server_ctx, tcp_handle);
+    sx = CONTAINER_OF(server, struct server_ctx, tcp_handle);
     cx = xmalloc(sizeof(*cx));
     CHECK(0 == uv_tcp_init(sx->loop, &cx->incoming.handle.tcp));
     CHECK(0 == uv_accept(server, &cx->incoming.handle.stream));
     client_finish_init(sx, cx);
 }
 
-int can_auth_none(const server_ctx *sx, const client_ctx *cx) {
+int can_auth_none(const struct server_ctx *sx, const struct client_ctx *cx) {
     return 1;
 }
 
-int can_auth_passwd(const server_ctx *sx, const client_ctx *cx) {
+int can_auth_passwd(const struct server_ctx *sx, const struct client_ctx *cx) {
     return 0;
 }
 
-int can_access(const server_ctx *sx, const client_ctx *cx, const struct sockaddr *addr) {
+int can_access(const struct server_ctx *sx, const struct client_ctx *cx, const struct sockaddr *addr) {
     const struct sockaddr_in6 *addr6;
     const struct sockaddr_in *addr4;
     const uint32_t *p;

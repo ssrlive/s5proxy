@@ -32,13 +32,13 @@
 #define DEFAULT_BIND_PORT     1080
 #define DEFAULT_IDLE_TIMEOUT  (60 * 1000)
 
-static void parse_opts(server_config *cf, int argc, char **argv);
+static void parse_opts(struct server_config *cf, int argc, char **argv);
 static void usage(void);
 
 static const char *progname = __FILE__;  /* Reset in main(). */
 
 int main(int argc, char **argv) {
-    server_config config;
+    struct server_config config;
     int err;
 
     progname = argv[0];
@@ -64,7 +64,7 @@ const char *_getprogname(void) {
 #endif // defined(_MSC_VER)
 }
 
-static void parse_opts(server_config *cf, int argc, char **argv) {
+static void parse_opts(struct server_config *cf, int argc, char **argv) {
     int opt;
 
     while (-1 != (opt = getopt(argc, argv, "b:H:hp:"))) {
