@@ -31,7 +31,6 @@
 struct server_state {
     struct server_config *config;
     struct server_ctx *servers;
-    uv_loop_t *loop;
 };
 
 static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
@@ -45,7 +44,6 @@ int server_run(struct server_config *cf, uv_loop_t *loop) {
     state = (struct server_state *) calloc(1, sizeof(*state));
     state->servers = NULL;
     state->config = cf;
-    state->loop = loop;
 
     /* Resolve the address of the interface that we should bind to.
     * The getaddrinfo callback starts the server and everything else.
@@ -100,9 +98,10 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
         struct sockaddr_in6 addr6;
     } s;
 
+    loop = req->loop;
+
     state = (struct server_state *) req->data;
     ASSERT(state);
-    loop = state->loop;
     cf = state->config;
 
     free(req);
@@ -154,7 +153,6 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
         }
 
         sx = state->servers + n;
-        sx->loop = loop;
         sx->idle_timeout = state->config->idle_timeout;
         CHECK(0 == uv_tcp_init(loop, &sx->tcp_handle));
 
@@ -188,7 +186,7 @@ static void on_listener_cb(uv_stream_t *server, int status) {
     CHECK(status == 0);
     sx = CONTAINER_OF(server, struct server_ctx, tcp_handle);
     cx = xmalloc(sizeof(*cx));
-    CHECK(0 == uv_tcp_init(sx->loop, &cx->incoming.handle.tcp));
+    CHECK(0 == uv_tcp_init(server->loop, &cx->incoming.handle.tcp));
     CHECK(0 == uv_accept(server, &cx->incoming.handle.stream));
     client_finish_init(sx, cx);
 }

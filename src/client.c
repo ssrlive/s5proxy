@@ -113,6 +113,8 @@ void client_finish_init(struct server_ctx *sx, struct client_ctx *cx) {
     struct conn *incoming;
     struct conn *outgoing;
 
+    uv_loop_t *loop = sx->tcp_handle.loop;
+
     cx->sx = sx;
     cx->state = s_handshake;
     s5_init(&cx->parser);
@@ -123,7 +125,7 @@ void client_finish_init(struct server_ctx *sx, struct client_ctx *cx) {
     incoming->rdstate = c_stop;
     incoming->wrstate = c_stop;
     incoming->idle_timeout = sx->idle_timeout;
-    CHECK(0 == uv_timer_init(sx->loop, &incoming->timer_handle));
+    CHECK(0 == uv_timer_init(loop, &incoming->timer_handle));
 
     outgoing = &cx->outgoing;
     outgoing->client = cx;
@@ -131,8 +133,8 @@ void client_finish_init(struct server_ctx *sx, struct client_ctx *cx) {
     outgoing->rdstate = c_stop;
     outgoing->wrstate = c_stop;
     outgoing->idle_timeout = sx->idle_timeout;
-    CHECK(0 == uv_tcp_init(cx->sx->loop, &outgoing->handle.tcp));
-    CHECK(0 == uv_timer_init(cx->sx->loop, &outgoing->timer_handle));
+    CHECK(0 == uv_tcp_init(loop, &outgoing->handle.tcp));
+    CHECK(0 == uv_timer_init(loop, &outgoing->timer_handle));
 
     /* Wait for the initial packet. */
     conn_read(incoming);
@@ -593,7 +595,7 @@ static void conn_getaddrinfo(struct conn *c, const char *hostname) {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
-    CHECK(0 == uv_getaddrinfo(c->client->sx->loop,
+    CHECK(0 == uv_getaddrinfo(c->client->sx->tcp_handle.loop,
         &c->t.addrinfo_req,
         conn_getaddrinfo_done,
         hostname,

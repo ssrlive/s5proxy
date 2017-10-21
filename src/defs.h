@@ -52,7 +52,6 @@ struct server_config {
 struct server_ctx {
     unsigned int idle_timeout;  /* Connection idle timeout in ms. */
     uv_tcp_t tcp_handle;
-    uv_loop_t *loop;
 };
 
 struct conn {
