@@ -26,10 +26,15 @@
 #include "uv.h"
 
 #include <assert.h>
-#include <netinet/in.h>  /* sockaddr_in, sockaddr_in6 */
 #include <stddef.h>      /* size_t, ssize_t */
 #include <stdint.h>
+#if defined(_MSC_VER)
+#include <winsock2.h>
+#else
+#include <netinet/in.h>  /* sockaddr_in, sockaddr_in6 */
 #include <sys/socket.h>  /* sockaddr */
+#endif // defined(_MSC_VER)
+
 
 struct client_ctx;
 
@@ -107,7 +112,7 @@ const char *_getprogname(void);
 /* getopt.c */
 #if !HAVE_UNISTD_H
 extern char *optarg;
-int getopt(int argc, char **argv, const char *options);
+int getopt(int argc, char * const argv[], const char *options);
 #endif
 
 /* ASSERT() is for debug checks, CHECK() for run-time sanity checks.
