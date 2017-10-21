@@ -38,63 +38,63 @@ static void usage(void);
 static const char *progname = __FILE__;  /* Reset in main(). */
 
 int main(int argc, char **argv) {
-  server_config config;
-  int err;
+    server_config config;
+    int err;
 
-  progname = argv[0];
-  memset(&config, 0, sizeof(config));
-  config.bind_host = DEFAULT_BIND_HOST;
-  config.bind_port = DEFAULT_BIND_PORT;
-  config.idle_timeout = DEFAULT_IDLE_TIMEOUT;
-  parse_opts(&config, argc, argv);
+    progname = argv[0];
+    memset(&config, 0, sizeof(config));
+    config.bind_host = DEFAULT_BIND_HOST;
+    config.bind_port = DEFAULT_BIND_PORT;
+    config.idle_timeout = DEFAULT_IDLE_TIMEOUT;
+    parse_opts(&config, argc, argv);
 
-  err = server_run(&config, uv_default_loop());
-  if (err) {
-    exit(1);
-  }
+    err = server_run(&config, uv_default_loop());
+    if (err) {
+        exit(1);
+    }
 
-  return 0;
+    return 0;
 }
 
 const char *_getprogname(void) {
-  return progname;
+    return progname;
 }
 
 static void parse_opts(server_config *cf, int argc, char **argv) {
-  int opt;
+    int opt;
 
-  while (-1 != (opt = getopt(argc, argv, "b:H:hp:"))) {
-    switch (opt) {
-      case 'b':
-        cf->bind_host = optarg;
-        break;
+    while (-1 != (opt = getopt(argc, argv, "b:H:hp:"))) {
+        switch (opt) {
+        case 'b':
+            cf->bind_host = optarg;
+            break;
 
-      case 'p':
-        if (1 != sscanf(optarg, "%hu", &cf->bind_port)) {
-          pr_err("bad port number: %s", optarg);
-          usage();
+        case 'p':
+            if (1 != sscanf(optarg, "%hu", &cf->bind_port)) {
+                pr_err("bad port number: %s", optarg);
+                usage();
+            }
+            break;
+
+        case 'H':
+        default:
+            usage();
         }
-        break;
-
-      case 'H':
-      default:
-        usage();
     }
-  }
 }
 
 static void usage(void) {
-  printf("Usage:\n"
-         "\n"
-         "  %s [-b <address>] [-h] [-p <port>]\n"
-         "\n"
-         "Options:\n"
-         "\n"
-         "  -b <hostname|address>  Bind to this address or hostname.\n"
-         "                         Default: \"127.0.0.1\"\n"
-         "  -h                     Show this help message.\n"
-         "  -p <port>              Bind to this port number.  Default: 1080\n"
-         "",
-         progname);
-  exit(1);
+    printf("Usage:\n"
+        "\n"
+        "  %s [-b <address>] [-h] [-p <port>]\n"
+        "\n"
+        "Options:\n"
+        "\n"
+        "  -b <hostname|address>  Bind to this address or hostname.\n"
+        "                         Default: \"127.0.0.1\"\n"
+        "  -h                     Show this help message.\n"
+        "  -p <port>              Bind to this port number.  Default: 1080\n"
+        "",
+        progname);
+    exit(1);
 }
