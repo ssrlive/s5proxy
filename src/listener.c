@@ -188,15 +188,15 @@ static void on_listener_cb(uv_stream_t *server, int status) {
     tunnel_initialize(lx);
 }
 
-int can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx) {
-    return 1;
+bool can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx) {
+    return true;
 }
 
-int can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx) {
-    return 0;
+bool can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx) {
+    return false;
 }
 
-int can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr) {
+bool can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr) {
     const struct sockaddr_in6 *addr6;
     const struct sockaddr_in *addr4;
     const uint32_t *p;
@@ -219,13 +219,13 @@ int can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const
         c = ntohl(p[2]);
         d = ntohl(p[3]);
         if (a == 0 && b == 0 && c == 0 && d == 1) {
-            return 0;  /* "::1" style address. */
+            return false;  /* "::1" style address. */
         }
         if (a == 0 && b == 0 && c == 0xFFFF && (d >> 24) == 0x7F) {
-            return 0;  /* "::ffff:127.x.x.x" style address. */
+            return false;  /* "::ffff:127.x.x.x" style address. */
         }
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }

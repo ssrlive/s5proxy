@@ -25,7 +25,7 @@
 #include <stdlib.h>  /* abort() */
 #include <string.h>  /* memset() */
 
-enum {
+enum s5_state {
     s5_version,
     s5_nmethods,
     s5_methods,
@@ -238,7 +238,7 @@ out:
     return err;
 }
 
-unsigned int s5_auth_methods(const s5_ctx *cx) {
+uint8_t s5_auth_methods(const s5_ctx *cx) {
     return cx->methods;
 }
 

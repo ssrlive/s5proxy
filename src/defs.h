@@ -55,8 +55,8 @@ struct listener_ctx {
 };
 
 struct socket_ctx {
-    unsigned char rdstate;
-    unsigned char wrstate;
+    enum socket_state rdstate;
+    enum socket_state wrstate;
     unsigned int idle_timeout;
     struct tunnel_ctx *tunnel;  /* Backlink to owning tunnel context. */
     ssize_t result;
@@ -81,7 +81,7 @@ struct socket_ctx {
 };
 
 struct tunnel_ctx {
-    unsigned int state;
+    enum sess_state state;
     struct listener_ctx *lx;  /* Backlink to owning listener context. */
     s5_ctx parser;  /* The SOCKS protocol parser. */
     struct socket_ctx incoming;  /* Connection with the SOCKS client. */
@@ -90,9 +90,9 @@ struct tunnel_ctx {
 
 /* listener.c */
 int listener_run(struct server_config *cf, uv_loop_t *loop);
-int can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
-int can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
-int can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr);
+bool can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
+bool can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
+bool can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr);
 
 /* tunnel.c */
 void tunnel_initialize(struct listener_ctx *lx);
