@@ -659,6 +659,15 @@ static void conn_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t *b
     struct conn *c;
 
     c = CONTAINER_OF(handle, struct conn, handle);
+
+    if (nread <= 0) {
+        // http://docs.libuv.org/en/v1.x/stream.html
+        pr_info("%s", uv_strerror((int)nread));
+        ASSERT(nread == UV_EOF);
+        //tunnel_close_and_free(remote, local);
+        return;
+    }
+
     ASSERT(c->t.buf == buf->base);
     ASSERT(c->rdstate == c_busy);
     c->rdstate = c_done;
