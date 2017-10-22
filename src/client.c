@@ -38,7 +38,7 @@
  * We could remove the done state from the writable state machine. For our
  * purposes, it's functionally equivalent to the stop state.
  *
- * When the connection with upstream has been established, the struct client_ctx
+ * When the connection with upstream has been established, the struct tunnel_ctx
  * moves into a state where incoming data from the client is sent upstream
  * and vice versa, incoming data from upstream is sent to the client.  In
  * other words, we're just piping data back and forth.  See conn_cycle()
@@ -81,18 +81,18 @@ enum sess_state {
     s_dead              /* Dead. Safe to free now. */
 };
 
-static void do_next(struct client_ctx *cx);
-static int do_handshake(struct client_ctx *cx);
-static int do_handshake_auth(struct client_ctx *cx);
-static int do_req_start(struct client_ctx *cx);
-static int do_req_parse(struct client_ctx *cx);
-static int do_req_lookup(struct client_ctx *cx);
-static int do_req_connect_start(struct client_ctx *cx);
-static int do_req_connect(struct client_ctx *cx);
-static int do_proxy_start(struct client_ctx *cx);
-static int do_proxy(struct client_ctx *cx);
-static int do_kill(struct client_ctx *cx);
-static int do_almost_dead(struct client_ctx *cx);
+static void do_next(struct tunnel_ctx *cx);
+static int do_handshake(struct tunnel_ctx *cx);
+static int do_handshake_auth(struct tunnel_ctx *cx);
+static int do_req_start(struct tunnel_ctx *cx);
+static int do_req_parse(struct tunnel_ctx *cx);
+static int do_req_lookup(struct tunnel_ctx *cx);
+static int do_req_connect_start(struct tunnel_ctx *cx);
+static int do_req_connect(struct tunnel_ctx *cx);
+static int do_proxy_start(struct tunnel_ctx *cx);
+static int do_proxy(struct tunnel_ctx *cx);
+static int do_kill(struct tunnel_ctx *cx);
+static int do_almost_dead(struct tunnel_ctx *cx);
 static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx *b);
 static void socket_timer_reset(struct socket_ctx *c);
 static void socket_timer_expire(uv_timer_t *handle);
@@ -109,7 +109,7 @@ static void socket_close(struct socket_ctx *c);
 static void socket_close_done(uv_handle_t *handle);
 
 /* |incoming| has been initialized by listener.c when this is called. */
-void client_finish_init(struct listener_ctx *lx, struct client_ctx *cx) {
+void client_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx) {
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
 
@@ -145,7 +145,7 @@ void client_finish_init(struct listener_ctx *lx, struct client_ctx *cx) {
  * end up (if all goes well) in the proxy state where we're just proxying
  * data between the client and upstream.
  */
-static void do_next(struct client_ctx *cx) {
+static void do_next(struct tunnel_ctx *cx) {
     int new_state;
 
     ASSERT(cx->state != s_dead);
@@ -197,7 +197,7 @@ static void do_next(struct client_ctx *cx) {
     }
 }
 
-static int do_handshake(struct client_ctx *cx) {
+static int do_handshake(struct tunnel_ctx *cx) {
     unsigned int methods;
     struct socket_ctx *incoming;
     s5_ctx *parser;
@@ -254,12 +254,12 @@ static int do_handshake(struct client_ctx *cx) {
 }
 
 /* TODO(bnoordhuis) Implement username/password auth. */
-static int do_handshake_auth(struct client_ctx *cx) {
+static int do_handshake_auth(struct tunnel_ctx *cx) {
     UNREACHABLE();
     return do_kill(cx);
 }
 
-static int do_req_start(struct client_ctx *cx) {
+static int do_req_start(struct tunnel_ctx *cx) {
     struct socket_ctx *incoming;
 
     incoming = &cx->incoming;
@@ -276,7 +276,7 @@ static int do_req_start(struct client_ctx *cx) {
     return s_req_parse;
 }
 
-static int do_req_parse(struct client_ctx *cx) {
+static int do_req_parse(struct tunnel_ctx *cx) {
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
     s5_ctx *parser;
@@ -357,7 +357,7 @@ static int do_req_parse(struct client_ctx *cx) {
     return do_req_connect_start(cx);
 }
 
-static int do_req_lookup(struct client_ctx *cx) {
+static int do_req_lookup(struct tunnel_ctx *cx) {
     s5_ctx *parser;
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
@@ -396,7 +396,7 @@ static int do_req_lookup(struct client_ctx *cx) {
 }
 
 /* Assumes that cx->outgoing.t.sa contains a valid AF_INET/AF_INET6 address. */
-static int do_req_connect_start(struct client_ctx *cx) {
+static int do_req_connect_start(struct tunnel_ctx *cx) {
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
     int err;
@@ -424,7 +424,7 @@ static int do_req_connect_start(struct client_ctx *cx) {
     return s_req_connect;
 }
 
-static int do_req_connect(struct client_ctx *cx) {
+static int do_req_connect(struct tunnel_ctx *cx) {
     const struct sockaddr_in6 *in6;
     const struct sockaddr_in *in;
     char addr_storage[sizeof(*in6)];
@@ -480,7 +480,7 @@ static int do_req_connect(struct client_ctx *cx) {
     return s_kill;
 }
 
-static int do_proxy_start(struct client_ctx *cx) {
+static int do_proxy_start(struct tunnel_ctx *cx) {
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
 
@@ -503,7 +503,7 @@ static int do_proxy_start(struct client_ctx *cx) {
 }
 
 /* Proxy incoming data back and forth. */
-static int do_proxy(struct client_ctx *cx) {
+static int do_proxy(struct tunnel_ctx *cx) {
     if (socket_cycle("client", &cx->incoming, &cx->outgoing)) {
         return do_kill(cx);
     }
@@ -515,7 +515,7 @@ static int do_proxy(struct client_ctx *cx) {
     return s_proxy;
 }
 
-static int do_kill(struct client_ctx *cx) {
+static int do_kill(struct tunnel_ctx *cx) {
     int new_state;
 
     if (cx->state >= s_almost_dead_0) {
@@ -536,7 +536,7 @@ static int do_kill(struct client_ctx *cx) {
     return new_state;
 }
 
-static int do_almost_dead(struct client_ctx *cx) {
+static int do_almost_dead(struct tunnel_ctx *cx) {
     ASSERT(cx->state >= s_almost_dead_0);
     return cx->state + 1;  /* Another finalizer completed. */
 }

@@ -181,7 +181,7 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
 
 static void on_listener_cb(uv_stream_t *server, int status) {
     struct listener_ctx *lx;
-    struct client_ctx *cx;
+    struct tunnel_ctx *cx;
 
     CHECK(status == 0);
     lx = CONTAINER_OF(server, struct listener_ctx, tcp_handle);
@@ -191,22 +191,19 @@ static void on_listener_cb(uv_stream_t *server, int status) {
     client_finish_init(lx, cx);
 }
 
-int can_auth_none(const struct listener_ctx *lx, const struct client_ctx *cx) {
+int can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx) {
     return 1;
 }
 
-int can_auth_passwd(const struct listener_ctx *lx, const struct client_ctx *cx) {
+int can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx) {
     return 0;
 }
 
-int can_access(const struct listener_ctx *lx, const struct client_ctx *cx, const struct sockaddr *addr) {
+int can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr) {
     const struct sockaddr_in6 *addr6;
     const struct sockaddr_in *addr4;
     const uint32_t *p;
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
-    uint32_t d;
+    uint32_t a, b, c, d;
 
     /* TODO(bnoordhuis) Implement proper access checks.  For now, just reject
     * traffic to localhost.

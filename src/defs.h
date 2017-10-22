@@ -58,7 +58,7 @@ struct socket_ctx {
     unsigned char rdstate;
     unsigned char wrstate;
     unsigned int idle_timeout;
-    struct client_ctx *client;  /* Backlink to owning client context. */
+    struct tunnel_ctx *client;  /* Backlink to owning tunnel context. */
     ssize_t result;
     union {
         uv_handle_t handle;
@@ -80,7 +80,7 @@ struct socket_ctx {
     } t;
 };
 
-struct client_ctx {
+struct tunnel_ctx {
     unsigned int state;
     struct listener_ctx *lx;  /* Backlink to owning listener context. */
     s5_ctx parser;  /* The SOCKS protocol parser. */
@@ -90,12 +90,12 @@ struct client_ctx {
 
 /* listener.c */
 int listener_run(struct server_config *cf, uv_loop_t *loop);
-int can_auth_none(const struct listener_ctx *lx, const struct client_ctx *cx);
-int can_auth_passwd(const struct listener_ctx *lx, const struct client_ctx *cx);
-int can_access(const struct listener_ctx *lx, const struct client_ctx *cx, const struct sockaddr *addr);
+int can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
+int can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
+int can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr);
 
 /* client.c */
-void client_finish_init(struct listener_ctx *lx, struct client_ctx *cx);
+void client_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx);
 
 /* util.c */
 #if defined(__GNUC__)
