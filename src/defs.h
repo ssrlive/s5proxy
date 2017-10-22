@@ -95,7 +95,7 @@ int can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
 int can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr);
 
 /* client.c */
-void client_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx);
+void tunnel_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx);
 
 /* util.c */
 #if defined(__GNUC__)

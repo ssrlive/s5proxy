@@ -188,7 +188,7 @@ static void on_listener_cb(uv_stream_t *server, int status) {
     cx = xmalloc(sizeof(*cx));
     CHECK(0 == uv_tcp_init(server->loop, &cx->incoming.handle.tcp));
     CHECK(0 == uv_accept(server, &cx->incoming.handle.stream));
-    client_finish_init(lx, cx);
+    tunnel_finish_init(lx, cx);
 }
 
 int can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx) {

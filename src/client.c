@@ -109,7 +109,7 @@ static void socket_close(struct socket_ctx *c);
 static void socket_close_done(uv_handle_t *handle);
 
 /* |incoming| has been initialized by listener.c when this is called. */
-void client_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx) {
+void tunnel_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx) {
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
 
