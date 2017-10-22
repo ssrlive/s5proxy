@@ -167,7 +167,7 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
             pr_err("%s(\"%s:%hu\"): %s", what, addrbuf, cf->bind_port, uv_strerror(err));
             while (n > 0) {
                 n -= 1;
-                uv_close((uv_handle_t *)(state->servers + n), NULL);
+                uv_close((uv_handle_t *)(sx), NULL);
             }
             break;
         }
