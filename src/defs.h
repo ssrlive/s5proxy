@@ -49,7 +49,7 @@ struct server_config {
     unsigned int idle_timeout;
 };
 
-struct server_ctx {
+struct listener_ctx {
     unsigned int idle_timeout;  /* Connection idle timeout in ms. */
     uv_tcp_t tcp_handle;
 };
@@ -82,7 +82,7 @@ struct conn {
 
 struct client_ctx {
     unsigned int state;
-    struct server_ctx *sx;  /* Backlink to owning server context. */
+    struct listener_ctx *lx;  /* Backlink to owning listener context. */
     s5_ctx parser;  /* The SOCKS protocol parser. */
     struct conn incoming;  /* Connection with the SOCKS client. */
     struct conn outgoing;  /* Connection with upstream. */
@@ -90,14 +90,14 @@ struct client_ctx {
 
 /* server.c */
 int server_run(struct server_config *cf, uv_loop_t *loop);
-int can_auth_none(const struct server_ctx *sx, const struct client_ctx *cx);
-int can_auth_passwd(const struct server_ctx *sx, const struct client_ctx *cx);
-int can_access(const struct server_ctx *sx,
+int can_auth_none(const struct listener_ctx *lx, const struct client_ctx *cx);
+int can_auth_passwd(const struct listener_ctx *lx, const struct client_ctx *cx);
+int can_access(const struct listener_ctx *lx,
     const struct client_ctx *cx,
     const struct sockaddr *addr);
 
 /* client.c */
-void client_finish_init(struct server_ctx *sx, struct client_ctx *cx);
+void client_finish_init(struct listener_ctx *lx, struct client_ctx *cx);
 
 /* util.c */
 #if defined(__GNUC__)

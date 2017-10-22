@@ -109,13 +109,13 @@ static void conn_close(struct conn *c);
 static void conn_close_done(uv_handle_t *handle);
 
 /* |incoming| has been initialized by server.c when this is called. */
-void client_finish_init(struct server_ctx *sx, struct client_ctx *cx) {
+void client_finish_init(struct listener_ctx *lx, struct client_ctx *cx) {
     struct conn *incoming;
     struct conn *outgoing;
 
-    uv_loop_t *loop = sx->tcp_handle.loop;
+    uv_loop_t *loop = lx->tcp_handle.loop;
 
-    cx->sx = sx;
+    cx->lx = lx;
     cx->state = s_handshake;
     s5_init(&cx->parser);
 
@@ -124,7 +124,7 @@ void client_finish_init(struct server_ctx *sx, struct client_ctx *cx) {
     incoming->result = 0;
     incoming->rdstate = c_stop;
     incoming->wrstate = c_stop;
-    incoming->idle_timeout = sx->idle_timeout;
+    incoming->idle_timeout = lx->idle_timeout;
     CHECK(0 == uv_timer_init(loop, &incoming->timer_handle));
 
     outgoing = &cx->outgoing;
@@ -132,7 +132,7 @@ void client_finish_init(struct server_ctx *sx, struct client_ctx *cx) {
     outgoing->result = 0;
     outgoing->rdstate = c_stop;
     outgoing->wrstate = c_stop;
-    outgoing->idle_timeout = sx->idle_timeout;
+    outgoing->idle_timeout = lx->idle_timeout;
     CHECK(0 == uv_tcp_init(loop, &outgoing->handle.tcp));
     CHECK(0 == uv_timer_init(loop, &outgoing->timer_handle));
 
@@ -239,13 +239,13 @@ static int do_handshake(struct client_ctx *cx) {
     }
 
     methods = s5_auth_methods(parser);
-    if ((methods & S5_AUTH_NONE) && can_auth_none(cx->sx, cx)) {
+    if ((methods & S5_AUTH_NONE) && can_auth_none(cx->lx, cx)) {
         s5_select_auth(parser, S5_AUTH_NONE);
         conn_write(incoming, "\5\0", 2);  /* No auth required. */
         return s_req_start;
     }
 
-    if ((methods & S5_AUTH_PASSWD) && can_auth_passwd(cx->sx, cx)) {
+    if ((methods & S5_AUTH_PASSWD) && can_auth_passwd(cx->lx, cx)) {
         /* TODO(bnoordhuis) Implement username/password auth. */
     }
 
@@ -408,7 +408,7 @@ static int do_req_connect_start(struct client_ctx *cx) {
     ASSERT(outgoing->rdstate == c_stop);
     ASSERT(outgoing->wrstate == c_stop);
 
-    if (!can_access(cx->sx, cx, &outgoing->t.addr)) {
+    if (!can_access(cx->lx, cx, &outgoing->t.addr)) {
         pr_warn("connection not allowed by ruleset");
         /* Send a 'Connection not allowed by ruleset' reply. */
         conn_write(incoming, "\5\2\0\1\0\0\0\0\0\0", 10);
@@ -595,7 +595,7 @@ static void conn_getaddrinfo(struct conn *c, const char *hostname) {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
-    CHECK(0 == uv_getaddrinfo(c->client->sx->tcp_handle.loop,
+    CHECK(0 == uv_getaddrinfo(c->client->lx->tcp_handle.loop,
         &c->t.addrinfo_req,
         conn_getaddrinfo_done,
         hostname,

@@ -30,7 +30,7 @@
 
 struct server_state {
     struct server_config *config;
-    struct server_ctx *servers;
+    struct listener_ctx *listeners;
 };
 
 static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
@@ -42,7 +42,7 @@ int server_run(struct server_config *cf, uv_loop_t *loop) {
     int err;
 
     state = (struct server_state *) calloc(1, sizeof(*state));
-    state->servers = NULL;
+    state->listeners = NULL;
     state->config = cf;
 
     /* Resolve the address of the interface that we should bind to.
@@ -72,7 +72,7 @@ int server_run(struct server_config *cf, uv_loop_t *loop) {
 
     free(state->config->bind_host);
     free(state->config);
-    free(state->servers);
+    free(state->listeners);
     free(state);
 
     return 0;
@@ -89,7 +89,7 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
     const void *addrv;
     const char *what;
     uv_loop_t *loop;
-    struct server_ctx *sx;
+    struct listener_ctx *lx;
     unsigned int n;
     int err;
     union {
@@ -128,7 +128,7 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
         return;
     }
 
-    state->servers = xmalloc((ipv4_naddrs + ipv6_naddrs) * sizeof(state->servers[0]));
+    state->listeners = xmalloc((ipv4_naddrs + ipv6_naddrs) * sizeof(state->listeners[0]));
 
     n = 0;
     for (ai = addrs; ai != NULL; ai = ai->ai_next) {
@@ -152,22 +152,22 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
             UNREACHABLE();
         }
 
-        sx = state->servers + n;
-        sx->idle_timeout = state->config->idle_timeout;
-        CHECK(0 == uv_tcp_init(loop, &sx->tcp_handle));
+        lx = state->listeners + n;
+        lx->idle_timeout = state->config->idle_timeout;
+        CHECK(0 == uv_tcp_init(loop, &lx->tcp_handle));
 
         what = "uv_tcp_bind";
-        err = uv_tcp_bind(&sx->tcp_handle, &s.addr, 0);
+        err = uv_tcp_bind(&lx->tcp_handle, &s.addr, 0);
         if (err == 0) {
             what = "uv_listen";
-            err = uv_listen((uv_stream_t *)&sx->tcp_handle, 128, on_listener_cb);
+            err = uv_listen((uv_stream_t *)&lx->tcp_handle, 128, on_listener_cb);
         }
 
         if (err != 0) {
             pr_err("%s(\"%s:%hu\"): %s", what, addrbuf, cf->bind_port, uv_strerror(err));
             while (n > 0) {
                 n -= 1;
-                uv_close((uv_handle_t *)(sx), NULL);
+                uv_close((uv_handle_t *)(&lx->tcp_handle), NULL);
             }
             break;
         }
@@ -180,26 +180,26 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
 }
 
 static void on_listener_cb(uv_stream_t *server, int status) {
-    struct server_ctx *sx;
+    struct listener_ctx *lx;
     struct client_ctx *cx;
 
     CHECK(status == 0);
-    sx = CONTAINER_OF(server, struct server_ctx, tcp_handle);
+    lx = CONTAINER_OF(server, struct listener_ctx, tcp_handle);
     cx = xmalloc(sizeof(*cx));
     CHECK(0 == uv_tcp_init(server->loop, &cx->incoming.handle.tcp));
     CHECK(0 == uv_accept(server, &cx->incoming.handle.stream));
-    client_finish_init(sx, cx);
+    client_finish_init(lx, cx);
 }
 
-int can_auth_none(const struct server_ctx *sx, const struct client_ctx *cx) {
+int can_auth_none(const struct listener_ctx *lx, const struct client_ctx *cx) {
     return 1;
 }
 
-int can_auth_passwd(const struct server_ctx *sx, const struct client_ctx *cx) {
+int can_auth_passwd(const struct listener_ctx *lx, const struct client_ctx *cx) {
     return 0;
 }
 
-int can_access(const struct server_ctx *sx, const struct client_ctx *cx, const struct sockaddr *addr) {
+int can_access(const struct listener_ctx *lx, const struct client_ctx *cx, const struct sockaddr *addr) {
     const struct sockaddr_in6 *addr6;
     const struct sockaddr_in *addr4;
     const uint32_t *p;
