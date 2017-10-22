@@ -662,9 +662,9 @@ static void conn_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t *b
 
     if (nread <= 0) {
         // http://docs.libuv.org/en/v1.x/stream.html
-        pr_info("%s", uv_strerror((int)nread));
-        ASSERT(nread == UV_EOF);
-        //tunnel_close_and_free(remote, local);
+        pr_info("conn_read_done: %s", uv_strerror((int)nread));
+        ASSERT(nread == UV_EOF || nread == UV_ECONNRESET);
+        if (nread < 0) { do_kill(c->client); }
         return;
     }
 
