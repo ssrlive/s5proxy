@@ -93,25 +93,25 @@ static int do_proxy_start(struct client_ctx *cx);
 static int do_proxy(struct client_ctx *cx);
 static int do_kill(struct client_ctx *cx);
 static int do_almost_dead(struct client_ctx *cx);
-static int conn_cycle(const char *who, struct conn *a, struct conn *b);
-static void conn_timer_reset(struct conn *c);
-static void conn_timer_expire(uv_timer_t *handle);
-static void conn_getaddrinfo(struct conn *c, const char *hostname);
-static void conn_getaddrinfo_done(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
-static int conn_connect(struct conn *c);
-static void conn_connect_done(uv_connect_t *req, int status);
-static void conn_read(struct conn *c);
-static void conn_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
-static void conn_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf);
-static void conn_write(struct conn *c, const void *data, size_t len);
-static void conn_write_done(uv_write_t *req, int status);
-static void conn_close(struct conn *c);
-static void conn_close_done(uv_handle_t *handle);
+static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx *b);
+static void socket_timer_reset(struct socket_ctx *c);
+static void socket_timer_expire(uv_timer_t *handle);
+static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname);
+static void socket_getaddrinfo_done(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
+static int socket_connect(struct socket_ctx *c);
+static void socket_connect_done(uv_connect_t *req, int status);
+static void socket_read(struct socket_ctx *c);
+static void socket_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
+static void socket_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf);
+static void socket_write(struct socket_ctx *c, const void *data, size_t len);
+static void socket_write_done(uv_write_t *req, int status);
+static void socket_close(struct socket_ctx *c);
+static void socket_close_done(uv_handle_t *handle);
 
 /* |incoming| has been initialized by listener.c when this is called. */
 void client_finish_init(struct listener_ctx *lx, struct client_ctx *cx) {
-    struct conn *incoming;
-    struct conn *outgoing;
+    struct socket_ctx *incoming;
+    struct socket_ctx *outgoing;
 
     uv_loop_t *loop = lx->tcp_handle.loop;
 
@@ -137,7 +137,7 @@ void client_finish_init(struct listener_ctx *lx, struct client_ctx *cx) {
     CHECK(0 == uv_timer_init(loop, &outgoing->timer_handle));
 
     /* Wait for the initial packet. */
-    conn_read(incoming);
+    socket_read(incoming);
 }
 
 /* This is the core state machine that drives the client <-> upstream proxy.
@@ -199,7 +199,7 @@ static void do_next(struct client_ctx *cx) {
 
 static int do_handshake(struct client_ctx *cx) {
     unsigned int methods;
-    struct conn *incoming;
+    struct socket_ctx *incoming;
     s5_ctx *parser;
     uint8_t *data;
     size_t size;
@@ -220,7 +220,7 @@ static int do_handshake(struct client_ctx *cx) {
     size = (size_t)incoming->result;
     err = s5_parse(parser, &data, &size);
     if (err == s5_ok) {
-        conn_read(incoming);
+        socket_read(incoming);
         return s_handshake;  /* Need more data. */
     }
 
@@ -241,7 +241,7 @@ static int do_handshake(struct client_ctx *cx) {
     methods = s5_auth_methods(parser);
     if ((methods & S5_AUTH_NONE) && can_auth_none(cx->lx, cx)) {
         s5_select_auth(parser, S5_AUTH_NONE);
-        conn_write(incoming, "\5\0", 2);  /* No auth required. */
+        socket_write(incoming, "\5\0", 2);  /* No auth required. */
         return s_req_start;
     }
 
@@ -249,7 +249,7 @@ static int do_handshake(struct client_ctx *cx) {
         /* TODO(bnoordhuis) Implement username/password auth. */
     }
 
-    conn_write(incoming, "\5\377", 2);  /* No acceptable auth. */
+    socket_write(incoming, "\5\377", 2);  /* No acceptable auth. */
     return s_kill;
 }
 
@@ -260,7 +260,7 @@ static int do_handshake_auth(struct client_ctx *cx) {
 }
 
 static int do_req_start(struct client_ctx *cx) {
-    struct conn *incoming;
+    struct socket_ctx *incoming;
 
     incoming = &cx->incoming;
     ASSERT(incoming->rdstate == c_stop);
@@ -272,13 +272,13 @@ static int do_req_start(struct client_ctx *cx) {
         return do_kill(cx);
     }
 
-    conn_read(incoming);
+    socket_read(incoming);
     return s_req_parse;
 }
 
 static int do_req_parse(struct client_ctx *cx) {
-    struct conn *incoming;
-    struct conn *outgoing;
+    struct socket_ctx *incoming;
+    struct socket_ctx *outgoing;
     s5_ctx *parser;
     uint8_t *data;
     size_t size;
@@ -302,7 +302,7 @@ static int do_req_parse(struct client_ctx *cx) {
     size = (size_t)incoming->result;
     err = s5_parse(parser, &data, &size);
     if (err == s5_ok) {
-        conn_read(incoming);
+        socket_read(incoming);
         return s_req_parse;  /* Need more data. */
     }
 
@@ -332,7 +332,7 @@ static int do_req_parse(struct client_ctx *cx) {
     ASSERT(parser->cmd == s5_cmd_tcp_connect);
 
     if (parser->atyp == s5_atyp_host) {
-        conn_getaddrinfo(outgoing, (const char *)parser->daddr);
+        socket_getaddrinfo(outgoing, (const char *)parser->daddr);
         return s_req_lookup;
     }
 
@@ -359,8 +359,8 @@ static int do_req_parse(struct client_ctx *cx) {
 
 static int do_req_lookup(struct client_ctx *cx) {
     s5_ctx *parser;
-    struct conn *incoming;
-    struct conn *outgoing;
+    struct socket_ctx *incoming;
+    struct socket_ctx *outgoing;
 
     parser = &cx->parser;
     incoming = &cx->incoming;
@@ -376,7 +376,7 @@ static int do_req_lookup(struct client_ctx *cx) {
             parser->daddr,
             uv_strerror((int)outgoing->result));
         /* Send back a 'Host unreachable' reply. */
-        conn_write(incoming, "\5\4\0\1\0\0\0\0\0\0", 10);
+        socket_write(incoming, "\5\4\0\1\0\0\0\0\0\0", 10);
         return s_kill;
     }
 
@@ -397,8 +397,8 @@ static int do_req_lookup(struct client_ctx *cx) {
 
 /* Assumes that cx->outgoing.t.sa contains a valid AF_INET/AF_INET6 address. */
 static int do_req_connect_start(struct client_ctx *cx) {
-    struct conn *incoming;
-    struct conn *outgoing;
+    struct socket_ctx *incoming;
+    struct socket_ctx *outgoing;
     int err;
 
     incoming = &cx->incoming;
@@ -411,11 +411,11 @@ static int do_req_connect_start(struct client_ctx *cx) {
     if (!can_access(cx->lx, cx, &outgoing->t.addr)) {
         pr_warn("connection not allowed by ruleset");
         /* Send a 'Connection not allowed by ruleset' reply. */
-        conn_write(incoming, "\5\2\0\1\0\0\0\0\0\0", 10);
+        socket_write(incoming, "\5\2\0\1\0\0\0\0\0\0", 10);
         return s_kill;
     }
 
-    err = conn_connect(outgoing);
+    err = socket_connect(outgoing);
     if (err != 0) {
         pr_err("connect error: %s\n", uv_strerror(err));
         return do_kill(cx);
@@ -428,8 +428,8 @@ static int do_req_connect(struct client_ctx *cx) {
     const struct sockaddr_in6 *in6;
     const struct sockaddr_in *in;
     char addr_storage[sizeof(*in6)];
-    struct conn *incoming;
-    struct conn *outgoing;
+    struct socket_ctx *incoming;
+    struct socket_ctx *outgoing;
     uint8_t *buf;
     int addrlen;
 
@@ -458,13 +458,13 @@ static int do_req_connect(struct client_ctx *cx) {
             in = (const struct sockaddr_in *) &addr_storage;
             memcpy(buf + 4, &in->sin_addr, 4);
             memcpy(buf + 8, &in->sin_port, 2);
-            conn_write(incoming, buf, 10);
+            socket_write(incoming, buf, 10);
         } else if (addrlen == sizeof(*in6)) {
             buf[3] = 4;  /* IPv6. */
             in6 = (const struct sockaddr_in6 *) &addr_storage;
             memcpy(buf + 4, &in6->sin6_addr, 16);
             memcpy(buf + 20, &in6->sin6_port, 2);
-            conn_write(incoming, buf, 22);
+            socket_write(incoming, buf, 22);
         } else {
             UNREACHABLE();
         }
@@ -472,7 +472,7 @@ static int do_req_connect(struct client_ctx *cx) {
     } else {
         pr_err("upstream connection error: %s\n", uv_strerror((int)outgoing->result));
         /* Send a 'Connection refused' reply. */
-        conn_write(incoming, "\5\5\0\1\0\0\0\0\0\0", 10);
+        socket_write(incoming, "\5\5\0\1\0\0\0\0\0\0", 10);
         return s_kill;
     }
 
@@ -481,8 +481,8 @@ static int do_req_connect(struct client_ctx *cx) {
 }
 
 static int do_proxy_start(struct client_ctx *cx) {
-    struct conn *incoming;
-    struct conn *outgoing;
+    struct socket_ctx *incoming;
+    struct socket_ctx *outgoing;
 
     incoming = &cx->incoming;
     outgoing = &cx->outgoing;
@@ -497,18 +497,18 @@ static int do_proxy_start(struct client_ctx *cx) {
         return do_kill(cx);
     }
 
-    conn_read(incoming);
-    conn_read(outgoing);
+    socket_read(incoming);
+    socket_read(outgoing);
     return s_proxy;
 }
 
 /* Proxy incoming data back and forth. */
 static int do_proxy(struct client_ctx *cx) {
-    if (conn_cycle("client", &cx->incoming, &cx->outgoing)) {
+    if (socket_cycle("client", &cx->incoming, &cx->outgoing)) {
         return do_kill(cx);
     }
 
-    if (conn_cycle("upstream", &cx->outgoing, &cx->incoming)) {
+    if (socket_cycle("upstream", &cx->outgoing, &cx->incoming)) {
         return do_kill(cx);
     }
 
@@ -531,8 +531,8 @@ static int do_kill(struct client_ctx *cx) {
         uv_cancel(&cx->outgoing.t.req);
     }
 
-    conn_close(&cx->incoming);
-    conn_close(&cx->outgoing);
+    socket_close(&cx->incoming);
+    socket_close(&cx->outgoing);
     return new_state;
 }
 
@@ -541,7 +541,7 @@ static int do_almost_dead(struct client_ctx *cx) {
     return cx->state + 1;  /* Another finalizer completed. */
 }
 
-static int conn_cycle(const char *who, struct conn *a, struct conn *b) {
+static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx *b) {
     if (a->result < 0) {
         if (a->result != UV_EOF) {
             pr_err("%s error: %s", who, uv_strerror((int)a->result));
@@ -563,9 +563,9 @@ static int conn_cycle(const char *who, struct conn *a, struct conn *b) {
     */
     if (a->wrstate == c_stop) {
         if (b->rdstate == c_stop) {
-            conn_read(b);
+            socket_read(b);
         } else if (b->rdstate == c_done) {
-            conn_write(a, b->t.buf, b->result);
+            socket_write(a, b->t.buf, b->result);
             b->rdstate = c_stop;  /* Triggers the call to conn_read() above. */
         }
     }
@@ -573,22 +573,22 @@ static int conn_cycle(const char *who, struct conn *a, struct conn *b) {
     return 0;
 }
 
-static void conn_timer_reset(struct conn *c) {
+static void socket_timer_reset(struct socket_ctx *c) {
     CHECK(0 == uv_timer_start(&c->timer_handle,
-        conn_timer_expire,
+        socket_timer_expire,
         c->idle_timeout,
         0));
 }
 
-static void conn_timer_expire(uv_timer_t *handle) {
-    struct conn *c;
+static void socket_timer_expire(uv_timer_t *handle) {
+    struct socket_ctx *c;
 
-    c = CONTAINER_OF(handle, struct conn, timer_handle);
+    c = CONTAINER_OF(handle, struct socket_ctx, timer_handle);
     c->result = UV_ETIMEDOUT;
     do_next(c->client);
 }
 
-static void conn_getaddrinfo(struct conn *c, const char *hostname) {
+static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname) {
     struct addrinfo hints;
 
     memset(&hints, 0, sizeof(hints));
@@ -597,17 +597,17 @@ static void conn_getaddrinfo(struct conn *c, const char *hostname) {
     hints.ai_protocol = IPPROTO_TCP;
     CHECK(0 == uv_getaddrinfo(c->client->lx->tcp_handle.loop,
         &c->t.addrinfo_req,
-        conn_getaddrinfo_done,
+        socket_getaddrinfo_done,
         hostname,
         NULL,
         &hints));
-    conn_timer_reset(c);
+    socket_timer_reset(c);
 }
 
-static void conn_getaddrinfo_done(uv_getaddrinfo_t *req, int status, struct addrinfo *ai) {
-    struct conn *c;
+static void socket_getaddrinfo_done(uv_getaddrinfo_t *req, int status, struct addrinfo *ai) {
+    struct socket_ctx *c;
 
-    c = CONTAINER_OF(req, struct conn, t.addrinfo_req);
+    c = CONTAINER_OF(req, struct socket_ctx, t.addrinfo_req);
     c->result = status;
 
     if (status == 0) {
@@ -626,39 +626,39 @@ static void conn_getaddrinfo_done(uv_getaddrinfo_t *req, int status, struct addr
 }
 
 /* Assumes that c->t.sa contains a valid AF_INET or AF_INET6 address. */
-static int conn_connect(struct conn *c) {
+static int socket_connect(struct socket_ctx *c) {
     ASSERT(c->t.addr.sa_family == AF_INET ||
         c->t.addr.sa_family == AF_INET6);
-    conn_timer_reset(c);
+    socket_timer_reset(c);
     return uv_tcp_connect(&c->t.connect_req,
         &c->handle.tcp,
         &c->t.addr,
-        conn_connect_done);
+        socket_connect_done);
 }
 
-static void conn_connect_done(uv_connect_t *req, int status) {
-    struct conn *c;
+static void socket_connect_done(uv_connect_t *req, int status) {
+    struct socket_ctx *c;
 
     if (status == UV_ECANCELED) {
         return;  /* Handle has been closed. */
     }
 
-    c = CONTAINER_OF(req, struct conn, t.connect_req);
+    c = CONTAINER_OF(req, struct socket_ctx, t.connect_req);
     c->result = status;
     do_next(c->client);
 }
 
-static void conn_read(struct conn *c) {
+static void socket_read(struct socket_ctx *c) {
     ASSERT(c->rdstate == c_stop);
-    CHECK(0 == uv_read_start(&c->handle.stream, conn_alloc, conn_read_done));
+    CHECK(0 == uv_read_start(&c->handle.stream, socket_alloc, socket_read_done));
     c->rdstate = c_busy;
-    conn_timer_reset(c);
+    socket_timer_reset(c);
 }
 
-static void conn_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
-    struct conn *c;
+static void socket_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
+    struct socket_ctx *c;
 
-    c = CONTAINER_OF(handle, struct conn, handle);
+    c = CONTAINER_OF(handle, struct socket_ctx, handle);
 
     if (nread <= 0) {
         // http://docs.libuv.org/en/v1.x/stream.html
@@ -677,16 +677,16 @@ static void conn_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t *b
     do_next(c->client);
 }
 
-static void conn_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf) {
-    struct conn *c;
+static void socket_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf) {
+    struct socket_ctx *c;
 
-    c = CONTAINER_OF(handle, struct conn, handle);
+    c = CONTAINER_OF(handle, struct socket_ctx, handle);
     ASSERT(c->rdstate == c_busy);
     buf->base = c->t.buf;
     buf->len = sizeof(c->t.buf);
 }
 
-static void conn_write(struct conn *c, const void *data, size_t len) {
+static void socket_write(struct socket_ctx *c, const void *data, size_t len) {
     uv_buf_t buf;
 
     ASSERT(c->wrstate == c_stop || c->wrstate == c_done);
@@ -698,37 +698,37 @@ static void conn_write(struct conn *c, const void *data, size_t len) {
     buf.base = (char *)data;
     buf.len = (uv_buf_len_t)len;
 
-    CHECK(0 == uv_write(&c->write_req, &c->handle.stream, &buf, 1, conn_write_done));
-    conn_timer_reset(c);
+    CHECK(0 == uv_write(&c->write_req, &c->handle.stream, &buf, 1, socket_write_done));
+    socket_timer_reset(c);
 }
 
-static void conn_write_done(uv_write_t *req, int status) {
-    struct conn *c;
+static void socket_write_done(uv_write_t *req, int status) {
+    struct socket_ctx *c;
 
     if (status == UV_ECANCELED) {
         return;  /* Handle has been closed. */
     }
 
-    c = CONTAINER_OF(req, struct conn, write_req);
+    c = CONTAINER_OF(req, struct socket_ctx, write_req);
     ASSERT(c->wrstate == c_busy);
     c->wrstate = c_done;
     c->result = status;
     do_next(c->client);
 }
 
-static void conn_close(struct conn *c) {
+static void socket_close(struct socket_ctx *c) {
     ASSERT(c->rdstate != c_dead);
     ASSERT(c->wrstate != c_dead);
     c->rdstate = c_dead;
     c->wrstate = c_dead;
     c->timer_handle.data = c;
     c->handle.handle.data = c;
-    uv_close(&c->handle.handle, conn_close_done);
-    uv_close((uv_handle_t *)&c->timer_handle, conn_close_done);
+    uv_close(&c->handle.handle, socket_close_done);
+    uv_close((uv_handle_t *)&c->timer_handle, socket_close_done);
 }
 
-static void conn_close_done(uv_handle_t *handle) {
-    struct conn *c;
+static void socket_close_done(uv_handle_t *handle) {
+    struct socket_ctx *c;
 
     c = handle->data;
     do_next(c->client);

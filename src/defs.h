@@ -54,7 +54,7 @@ struct listener_ctx {
     uv_tcp_t tcp_handle;
 };
 
-struct conn {
+struct socket_ctx {
     unsigned char rdstate;
     unsigned char wrstate;
     unsigned int idle_timeout;
@@ -84,8 +84,8 @@ struct client_ctx {
     unsigned int state;
     struct listener_ctx *lx;  /* Backlink to owning listener context. */
     s5_ctx parser;  /* The SOCKS protocol parser. */
-    struct conn incoming;  /* Connection with the SOCKS client. */
-    struct conn outgoing;  /* Connection with upstream. */
+    struct socket_ctx incoming;  /* Connection with the SOCKS client. */
+    struct socket_ctx outgoing;  /* Connection with upstream. */
 };
 
 /* listener.c */
