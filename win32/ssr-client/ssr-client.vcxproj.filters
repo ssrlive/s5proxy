@@ -32,7 +32,7 @@
     <ClCompile Include="..\..\src\util.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\client.c">
+    <ClCompile Include="..\..\src\tunnel.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\getopt.c">

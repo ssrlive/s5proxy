@@ -24,7 +24,7 @@
     <None Include="..\..\src\Makefile" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\client.c" />
+    <ClCompile Include="..\..\src\tunnel.c" />
     <ClCompile Include="..\..\src\main.c" />
     <ClCompile Include="..\..\src\s5.c" />
     <ClCompile Include="..\..\src\listener.c" />

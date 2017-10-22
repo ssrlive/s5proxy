@@ -25,7 +25,7 @@
       'target_name': 's5-proxy',
       'type': 'executable',
       'sources': [
-        'client.c',
+        'tunnel.c',
         'defs.h',
         'main.c',
         's5.c',

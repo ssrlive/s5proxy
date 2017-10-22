@@ -23,7 +23,7 @@ BUILDDIR ?= build
 GYP ?= gyp
 V ?=
 
-SOURCES := client.c defs.h getopt.c main.c s5.c s5.h listener.c util.c
+SOURCES := tunnel.c defs.h getopt.c main.c s5.c s5.h listener.c util.c
 
 .PHONY: all clean
 

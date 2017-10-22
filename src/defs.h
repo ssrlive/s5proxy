@@ -94,7 +94,7 @@ int can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
 int can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
 int can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr);
 
-/* client.c */
+/* tunnel.c */
 void tunnel_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx);
 
 /* util.c */
