@@ -120,7 +120,7 @@ void client_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx) {
     s5_init(&cx->parser);
 
     incoming = &cx->incoming;
-    incoming->client = cx;
+    incoming->tunnel = cx;
     incoming->result = 0;
     incoming->rdstate = c_stop;
     incoming->wrstate = c_stop;
@@ -128,7 +128,7 @@ void client_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx) {
     CHECK(0 == uv_timer_init(loop, &incoming->timer_handle));
 
     outgoing = &cx->outgoing;
-    outgoing->client = cx;
+    outgoing->tunnel = cx;
     outgoing->result = 0;
     outgoing->rdstate = c_stop;
     outgoing->wrstate = c_stop;
@@ -585,7 +585,7 @@ static void socket_timer_expire(uv_timer_t *handle) {
 
     c = CONTAINER_OF(handle, struct socket_ctx, timer_handle);
     c->result = UV_ETIMEDOUT;
-    do_next(c->client);
+    do_next(c->tunnel);
 }
 
 static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname) {
@@ -595,7 +595,7 @@ static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname) {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
-    CHECK(0 == uv_getaddrinfo(c->client->lx->tcp_handle.loop,
+    CHECK(0 == uv_getaddrinfo(c->tunnel->lx->tcp_handle.loop,
         &c->t.addrinfo_req,
         socket_getaddrinfo_done,
         hostname,
@@ -622,7 +622,7 @@ static void socket_getaddrinfo_done(uv_getaddrinfo_t *req, int status, struct ad
     }
 
     uv_freeaddrinfo(ai);
-    do_next(c->client);
+    do_next(c->tunnel);
 }
 
 /* Assumes that c->t.sa contains a valid AF_INET or AF_INET6 address. */
@@ -645,7 +645,7 @@ static void socket_connect_done(uv_connect_t *req, int status) {
 
     c = CONTAINER_OF(req, struct socket_ctx, t.connect_req);
     c->result = status;
-    do_next(c->client);
+    do_next(c->tunnel);
 }
 
 static void socket_read(struct socket_ctx *c) {
@@ -664,7 +664,7 @@ static void socket_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t 
         // http://docs.libuv.org/en/v1.x/stream.html
         pr_info("conn_read_done: %s", uv_strerror((int)nread));
         ASSERT(nread == UV_EOF || nread == UV_ECONNRESET);
-        if (nread < 0) { do_kill(c->client); }
+        if (nread < 0) { do_kill(c->tunnel); }
         return;
     }
 
@@ -674,7 +674,7 @@ static void socket_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t 
     c->result = nread;
 
     uv_read_stop(&c->handle.stream);
-    do_next(c->client);
+    do_next(c->tunnel);
 }
 
 static void socket_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf) {
@@ -713,7 +713,7 @@ static void socket_write_done(uv_write_t *req, int status) {
     ASSERT(c->wrstate == c_busy);
     c->wrstate = c_done;
     c->result = status;
-    do_next(c->client);
+    do_next(c->tunnel);
 }
 
 static void socket_close(struct socket_ctx *c) {
@@ -731,5 +731,5 @@ static void socket_close_done(uv_handle_t *handle) {
     struct socket_ctx *c;
 
     c = handle->data;
-    do_next(c->client);
+    do_next(c->tunnel);
 }

@@ -58,7 +58,7 @@ struct socket_ctx {
     unsigned char rdstate;
     unsigned char wrstate;
     unsigned int idle_timeout;
-    struct tunnel_ctx *client;  /* Backlink to owning tunnel context. */
+    struct tunnel_ctx *tunnel;  /* Backlink to owning tunnel context. */
     ssize_t result;
     union {
         uv_handle_t handle;
