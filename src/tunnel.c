@@ -109,26 +109,31 @@ static void socket_close(struct socket_ctx *c);
 static void socket_close_done(uv_handle_t *handle);
 
 /* |incoming| has been initialized by listener.c when this is called. */
-void tunnel_finish_init(struct listener_ctx *lx, struct tunnel_ctx *cx) {
+void tunnel_initialize(struct listener_ctx *lx) {
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
+    struct tunnel_ctx *tunnel;
+    uv_stream_t *server = (uv_stream_t *)&lx->tcp_handle;
+    uv_loop_t *loop = server->loop;
 
-    uv_loop_t *loop = lx->tcp_handle.loop;
+    tunnel = xmalloc(sizeof(*tunnel));
 
-    cx->lx = lx;
-    cx->state = s_handshake;
-    s5_init(&cx->parser);
+    tunnel->lx = lx;
+    tunnel->state = s_handshake;
+    s5_init(&tunnel->parser);
 
-    incoming = &cx->incoming;
-    incoming->tunnel = cx;
+    incoming = &tunnel->incoming;
+    incoming->tunnel = tunnel;
     incoming->result = 0;
     incoming->rdstate = c_stop;
     incoming->wrstate = c_stop;
     incoming->idle_timeout = lx->idle_timeout;
+    CHECK(0 == uv_tcp_init(loop, &incoming->handle.tcp));
+    CHECK(0 == uv_accept(server, &incoming->handle.stream));
     CHECK(0 == uv_timer_init(loop, &incoming->timer_handle));
 
-    outgoing = &cx->outgoing;
-    outgoing->tunnel = cx;
+    outgoing = &tunnel->outgoing;
+    outgoing->tunnel = tunnel;
     outgoing->result = 0;
     outgoing->rdstate = c_stop;
     outgoing->wrstate = c_stop;

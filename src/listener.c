@@ -181,14 +181,11 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
 
 static void on_listener_cb(uv_stream_t *server, int status) {
     struct listener_ctx *lx;
-    struct tunnel_ctx *cx;
 
     CHECK(status == 0);
     lx = CONTAINER_OF(server, struct listener_ctx, tcp_handle);
-    cx = xmalloc(sizeof(*cx));
-    CHECK(0 == uv_tcp_init(server->loop, &cx->incoming.handle.tcp));
-    CHECK(0 == uv_accept(server, &cx->incoming.handle.stream));
-    tunnel_finish_init(lx, cx);
+
+    tunnel_initialize(lx);
 }
 
 int can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx) {
