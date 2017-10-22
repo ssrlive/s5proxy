@@ -26,7 +26,7 @@
     <ClCompile Include="..\..\src\s5.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\server.c">
+    <ClCompile Include="..\..\src\listener.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\util.c">

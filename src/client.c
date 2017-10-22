@@ -108,7 +108,7 @@ static void conn_write_done(uv_write_t *req, int status);
 static void conn_close(struct conn *c);
 static void conn_close_done(uv_handle_t *handle);
 
-/* |incoming| has been initialized by server.c when this is called. */
+/* |incoming| has been initialized by listener.c when this is called. */
 void client_finish_init(struct listener_ctx *lx, struct client_ctx *cx) {
     struct conn *incoming;
     struct conn *outgoing;

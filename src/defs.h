@@ -88,13 +88,11 @@ struct client_ctx {
     struct conn outgoing;  /* Connection with upstream. */
 };
 
-/* server.c */
-int server_run(struct server_config *cf, uv_loop_t *loop);
+/* listener.c */
+int listener_run(struct server_config *cf, uv_loop_t *loop);
 int can_auth_none(const struct listener_ctx *lx, const struct client_ctx *cx);
 int can_auth_passwd(const struct listener_ctx *lx, const struct client_ctx *cx);
-int can_access(const struct listener_ctx *lx,
-    const struct client_ctx *cx,
-    const struct sockaddr *addr);
+int can_access(const struct listener_ctx *lx, const struct client_ctx *cx, const struct sockaddr *addr);
 
 /* client.c */
 void client_finish_init(struct listener_ctx *lx, struct client_ctx *cx);

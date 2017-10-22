@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
     config->idle_timeout = DEFAULT_IDLE_TIMEOUT;
     parse_opts(config, argc, argv);
 
-    err = server_run(config, uv_default_loop());
+    err = listener_run(config, uv_default_loop());
     if (err) {
         exit(1);
     }

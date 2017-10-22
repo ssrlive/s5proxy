@@ -30,7 +30,7 @@
         'main.c',
         's5.c',
         's5.h',
-        'server.c',
+        'listener.c',
         'util.c',
       ],
       'conditions': [

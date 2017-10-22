@@ -36,7 +36,7 @@ struct server_state {
 static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
 static void on_listener_cb(uv_stream_t *server, int status);
 
-int server_run(struct server_config *cf, uv_loop_t *loop) {
+int listener_run(struct server_config *cf, uv_loop_t *loop) {
     struct addrinfo hints;
     struct server_state *state;
     int err;
