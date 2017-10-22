@@ -212,6 +212,9 @@ static enum sess_state do_handshake(struct tunnel_ctx *cx) {
 
     parser = &cx->parser;
     incoming = &cx->incoming;
+    if (incoming->rdstate == socket_dead) {
+        return s_kill;
+    }
     ASSERT(incoming->rdstate == socket_done);
     ASSERT(incoming->wrstate == socket_stop);
     incoming->rdstate = socket_stop;
@@ -292,6 +295,11 @@ static enum sess_state do_req_parse(struct tunnel_ctx *cx) {
     parser = &cx->parser;
     incoming = &cx->incoming;
     outgoing = &cx->outgoing;
+
+    if (incoming->rdstate == socket_dead) {
+        return s_kill;
+    }
+
     ASSERT(incoming->rdstate == socket_done);
     ASSERT(incoming->wrstate == socket_stop);
     ASSERT(outgoing->rdstate == socket_stop);
@@ -714,6 +722,9 @@ static void socket_write_done(uv_write_t *req, int status) {
     }
 
     c = CONTAINER_OF(req, struct socket_ctx, write_req);
+    if (c->wrstate == socket_dead) {
+        return;
+    }
     ASSERT(c->wrstate == socket_busy);
     c->wrstate = socket_done;
     c->result = status;
@@ -721,6 +732,9 @@ static void socket_write_done(uv_write_t *req, int status) {
 }
 
 static void socket_close(struct socket_ctx *c) {
+    if (c->rdstate == socket_dead || c->wrstate == socket_dead) {
+        return;
+    }
     ASSERT(c->rdstate != socket_dead);
     ASSERT(c->wrstate != socket_dead);
     c->rdstate = socket_dead;
