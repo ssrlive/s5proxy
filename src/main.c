@@ -68,7 +68,7 @@ const char *_getprogname(void) {
 static void parse_opts(struct server_config *cf, int argc, char **argv) {
     int opt;
 
-    while (-1 != (opt = getopt(argc, argv, "b:H:hp:"))) {
+    while (-1 != (opt = getopt(argc, argv, "b:p:t:h"))) {
         switch (opt) {
         case 'b':
             if (cf->bind_host) {
@@ -83,8 +83,14 @@ static void parse_opts(struct server_config *cf, int argc, char **argv) {
                 usage();
             }
             break;
-
-        case 'H':
+        case 't':
+            if (1 != sscanf(optarg, "%ud", &cf->idle_timeout)) {
+                pr_err("bad idle timeout: %s", optarg);
+                usage();
+            }
+            cf->idle_timeout *= 1000;
+            break;
+        case 'h':
         default:
             usage();
         }
