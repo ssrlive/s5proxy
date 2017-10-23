@@ -25,26 +25,6 @@
 #include <stdlib.h>  /* abort() */
 #include <string.h>  /* memset() */
 
-enum s5_state {
-    s5_version,
-    s5_nmethods,
-    s5_methods,
-    s5_auth_pw_version,
-    s5_auth_pw_userlen,
-    s5_auth_pw_username,
-    s5_auth_pw_passlen,
-    s5_auth_pw_password,
-    s5_req_version,
-    s5_req_cmd,
-    s5_req_reserved,
-    s5_req_atyp,
-    s5_req_atyp_host,
-    s5_req_daddr,
-    s5_req_dport0,
-    s5_req_dport1,
-    s5_dead
-};
-
 void s5_init(s5_ctx *cx) {
     memset(cx, 0, sizeof(*cx));
     cx->state = s5_version;
@@ -91,7 +71,9 @@ s5_err s5_parse(s5_ctx *cx, uint8_t **data, size_t *size) {
                 case 2:
                     cx->methods |= S5_AUTH_PASSWD;
                     break;
+                default:
                     /* Ignore everything we don't understand. */
+                    break;
                 }
                 cx->arg0 += 1;
             }

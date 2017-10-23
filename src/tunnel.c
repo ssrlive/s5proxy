@@ -55,31 +55,6 @@
  * writes and everything else; libuv may switch to a request model for
  * reads in the future.
  */
-enum socket_state {
-    socket_busy,  /* Busy; waiting for incoming data or for a write to complete. */
-    socket_done,  /* Done; read incoming data or write finished. */
-    socket_stop,  /* Stopped. */
-    socket_dead
-};
-
-/* Session states. */
-enum sess_state {
-    s_handshake,        /* Wait for client handshake. */
-    s_handshake_auth,   /* Wait for client authentication data. */
-    s_req_start,        /* Start waiting for request data. */
-    s_req_parse,        /* Wait for request data. */
-    s_req_lookup,       /* Wait for upstream hostname DNS lookup to complete. */
-    s_req_connect,      /* Wait for uv_tcp_connect() to complete. */
-    s_proxy_start,      /* Connected. Start piping data. */
-    s_proxy,            /* Connected. Pipe data back and forth. */
-    s_kill,             /* Tear down session. */
-    s_almost_dead_0,    /* Waiting for finalizers to complete. */
-    s_almost_dead_1,    /* Waiting for finalizers to complete. */
-    s_almost_dead_2,    /* Waiting for finalizers to complete. */
-    s_almost_dead_3,    /* Waiting for finalizers to complete. */
-    s_almost_dead_4,    /* Waiting for finalizers to complete. */
-    s_dead              /* Dead. Safe to free now. */
-};
 
 static void do_next(struct tunnel_ctx *cx);
 static enum sess_state do_handshake(struct tunnel_ctx *cx);
@@ -151,7 +126,7 @@ void tunnel_initialize(struct listener_ctx *lx) {
  * data between the client and upstream.
  */
 static void do_next(struct tunnel_ctx *cx) {
-    enum sess_state new_state;
+    enum sess_state new_state = s_kill;
 
     ASSERT(cx->state != s_dead);
     switch (cx->state) {

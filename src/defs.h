@@ -42,6 +42,9 @@ typedef size_t uv_buf_len_t;
 #include <sys/socket.h>  /* sockaddr */
 #endif // defined(_MSC_VER)
 
+#if !defined(_MSC_VER)
+#include <stdbool.h>
+#endif
 
 struct server_config {
     char *bind_host;
@@ -52,6 +55,13 @@ struct server_config {
 struct listener_ctx {
     unsigned int idle_timeout;  /* Connection idle timeout in ms. */
     uv_tcp_t tcp_handle;
+};
+
+enum socket_state {
+    socket_dead,
+    socket_busy,  /* Busy; waiting for incoming data or for a write to complete. */
+    socket_done,  /* Done; read incoming data or write finished. */
+    socket_stop,  /* Stopped. */
 };
 
 struct socket_ctx {
@@ -78,6 +88,25 @@ struct socket_ctx {
         struct sockaddr addr;
         char buf[2048];  /* Scratch space. Used to read data into. */
     } t;
+};
+
+/* Session states. */
+enum sess_state {
+    s_handshake,        /* Wait for client handshake. */
+    s_handshake_auth,   /* Wait for client authentication data. */
+    s_req_start,        /* Start waiting for request data. */
+    s_req_parse,        /* Wait for request data. */
+    s_req_lookup,       /* Wait for upstream hostname DNS lookup to complete. */
+    s_req_connect,      /* Wait for uv_tcp_connect() to complete. */
+    s_proxy_start,      /* Connected. Start piping data. */
+    s_proxy,            /* Connected. Pipe data back and forth. */
+    s_kill,             /* Tear down session. */
+    s_almost_dead_0,    /* Waiting for finalizers to complete. */
+    s_almost_dead_1,    /* Waiting for finalizers to complete. */
+    s_almost_dead_2,    /* Waiting for finalizers to complete. */
+    s_almost_dead_3,    /* Waiting for finalizers to complete. */
+    s_almost_dead_4,    /* Waiting for finalizers to complete. */
+    s_dead              /* Dead. Safe to free now. */
 };
 
 struct tunnel_ctx {

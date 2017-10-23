@@ -23,6 +23,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static void pr_do(FILE *stream, const char *label, const char *fmt, va_list ap);
 

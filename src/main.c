@@ -61,7 +61,7 @@ const char *_getprogname(void) {
 #if defined(_MSC_VER)
     return strrchr(progname, '\\') + 1;
 #else
-    return progname;
+    return strrchr(progname, '/') + 1; // return progname;
 #endif // defined(_MSC_VER)
 }
 

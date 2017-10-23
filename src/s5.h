@@ -64,6 +64,26 @@ typedef enum s5_cmd {
     s5_cmd_udp_assoc
 } s5_cmd;
 
+enum s5_state {
+    s5_version,
+    s5_nmethods,
+    s5_methods,
+    s5_auth_pw_version,
+    s5_auth_pw_userlen,
+    s5_auth_pw_username,
+    s5_auth_pw_passlen,
+    s5_auth_pw_password,
+    s5_req_version,
+    s5_req_cmd,
+    s5_req_reserved,
+    s5_req_atyp,
+    s5_req_atyp_host,
+    s5_req_daddr,
+    s5_req_dport0,
+    s5_req_dport1,
+    s5_dead
+};
+
 typedef struct s5_ctx {
     uint32_t arg0;  /* Scratch space for the state machine. */
     uint32_t arg1;  /* Scratch space for the state machine. */

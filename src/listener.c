@@ -33,7 +33,7 @@ struct server_state {
     struct listener_ctx *listeners;
 };
 
-static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
+static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs);
 static void on_listener_cb(uv_stream_t *server, int status);
 
 int listener_run(struct server_config *cf, uv_loop_t *loop) {
@@ -86,7 +86,7 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
     struct server_state *state;
     const struct server_config *cf;
     struct addrinfo *ai;
-    const void *addrv;
+    const void *addrv = NULL;
     const char *what;
     uv_loop_t *loop;
     struct listener_ctx *lx;
