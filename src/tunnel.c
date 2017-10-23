@@ -95,18 +95,18 @@ static enum sess_state do_kill(struct tunnel_ctx *cx);
 static enum sess_state do_almost_dead(struct tunnel_ctx *cx);
 static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx *b);
 static void socket_timer_reset(struct socket_ctx *c);
-static void socket_timer_expire(uv_timer_t *handle);
+static void socket_timer_expire_cb(uv_timer_t *handle);
 static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname);
-static void socket_getaddrinfo_done(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
+static void socket_getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *ai);
 static int socket_connect(struct socket_ctx *c);
-static void socket_connect_done(uv_connect_t *req, int status);
+static void socket_connect_done_cb(uv_connect_t *req, int status);
 static void socket_read(struct socket_ctx *c);
-static void socket_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
-static void socket_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf);
+static void socket_read_done_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
+static void socket_alloc_cb(uv_handle_t *handle, size_t size, uv_buf_t *buf);
 static void socket_write(struct socket_ctx *c, const void *data, size_t len);
-static void socket_write_done(uv_write_t *req, int status);
+static void socket_write_done_cb(uv_write_t *req, int status);
 static void socket_close(struct socket_ctx *c);
-static void socket_close_done(uv_handle_t *handle);
+static void socket_close_done_cb(uv_handle_t *handle);
 
 /* |incoming| has been initialized by listener.c when this is called. */
 void tunnel_initialize(struct listener_ctx *lx) {
@@ -588,12 +588,12 @@ static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx
 
 static void socket_timer_reset(struct socket_ctx *c) {
     CHECK(0 == uv_timer_start(&c->timer_handle,
-        socket_timer_expire,
+        socket_timer_expire_cb,
         c->idle_timeout,
         0));
 }
 
-static void socket_timer_expire(uv_timer_t *handle) {
+static void socket_timer_expire_cb(uv_timer_t *handle) {
     struct socket_ctx *c;
 
     c = CONTAINER_OF(handle, struct socket_ctx, timer_handle);
@@ -610,14 +610,14 @@ static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname) {
     hints.ai_protocol = IPPROTO_TCP;
     CHECK(0 == uv_getaddrinfo(c->tunnel->lx->tcp_handle.loop,
         &c->t.addrinfo_req,
-        socket_getaddrinfo_done,
+        socket_getaddrinfo_done_cb,
         hostname,
         NULL,
         &hints));
     socket_timer_reset(c);
 }
 
-static void socket_getaddrinfo_done(uv_getaddrinfo_t *req, int status, struct addrinfo *ai) {
+static void socket_getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *ai) {
     struct socket_ctx *c;
 
     c = CONTAINER_OF(req, struct socket_ctx, t.addrinfo_req);
@@ -640,16 +640,15 @@ static void socket_getaddrinfo_done(uv_getaddrinfo_t *req, int status, struct ad
 
 /* Assumes that c->t.sa contains a valid AF_INET or AF_INET6 address. */
 static int socket_connect(struct socket_ctx *c) {
-    ASSERT(c->t.addr.sa_family == AF_INET ||
-        c->t.addr.sa_family == AF_INET6);
+    ASSERT(c->t.addr.sa_family == AF_INET || c->t.addr.sa_family == AF_INET6);
     socket_timer_reset(c);
     return uv_tcp_connect(&c->t.connect_req,
         &c->handle.tcp,
         &c->t.addr,
-        socket_connect_done);
+        socket_connect_done_cb);
 }
 
-static void socket_connect_done(uv_connect_t *req, int status) {
+static void socket_connect_done_cb(uv_connect_t *req, int status) {
     struct socket_ctx *c;
 
     if (status == UV_ECANCELED) {
@@ -663,12 +662,12 @@ static void socket_connect_done(uv_connect_t *req, int status) {
 
 static void socket_read(struct socket_ctx *c) {
     ASSERT(c->rdstate == socket_stop);
-    CHECK(0 == uv_read_start(&c->handle.stream, socket_alloc, socket_read_done));
+    CHECK(0 == uv_read_start(&c->handle.stream, socket_alloc_cb, socket_read_done_cb));
     c->rdstate = socket_busy;
     socket_timer_reset(c);
 }
 
-static void socket_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
+static void socket_read_done_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
     struct socket_ctx *c;
 
     c = CONTAINER_OF(handle, struct socket_ctx, handle);
@@ -689,7 +688,7 @@ static void socket_read_done(uv_stream_t *handle, ssize_t nread, const uv_buf_t 
     do_next(c->tunnel);
 }
 
-static void socket_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf) {
+static void socket_alloc_cb(uv_handle_t *handle, size_t size, uv_buf_t *buf) {
     struct socket_ctx *c;
 
     c = CONTAINER_OF(handle, struct socket_ctx, handle);
@@ -709,11 +708,11 @@ static void socket_write(struct socket_ctx *c, const void *data, size_t len) {
     */
     buf = uv_buf_init((char *)data, (unsigned int)len);
 
-    CHECK(0 == uv_write(&c->write_req, &c->handle.stream, &buf, 1, socket_write_done));
+    CHECK(0 == uv_write(&c->write_req, &c->handle.stream, &buf, 1, socket_write_done_cb));
     socket_timer_reset(c);
 }
 
-static void socket_write_done(uv_write_t *req, int status) {
+static void socket_write_done_cb(uv_write_t *req, int status) {
     struct socket_ctx *c;
 
     if (status == UV_ECANCELED) {
@@ -740,11 +739,11 @@ static void socket_close(struct socket_ctx *c) {
     c->wrstate = socket_dead;
     c->timer_handle.data = c;
     c->handle.handle.data = c;
-    uv_close(&c->handle.handle, socket_close_done);
-    uv_close((uv_handle_t *)&c->timer_handle, socket_close_done);
+    uv_close(&c->handle.handle, socket_close_done_cb);
+    uv_close((uv_handle_t *)&c->timer_handle, socket_close_done_cb);
 }
 
-static void socket_close_done(uv_handle_t *handle) {
+static void socket_close_done_cb(uv_handle_t *handle) {
     struct socket_ctx *c;
 
     c = handle->data;
