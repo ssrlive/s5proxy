@@ -12,9 +12,11 @@ set(SOURCE_FILES
         tunnel.c
         util.c)
 
-#if ((UNIX) AND (!APPLE))
-#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
-#endif()
+if ((UNIX) AND (!APPLE))
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
+endif()
+
+include_directories(${libuv_include_dirs})
 
 add_executable(s5proxy ${SOURCE_FILES})
 

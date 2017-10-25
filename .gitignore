@@ -18,3 +18,7 @@ win32/ssr-client/Debug/
 win32/ssr-client/Release/
 win32/ssr-client/x64/
 
+.idea
+cmake-build-debug
+cmake-build-release
+
