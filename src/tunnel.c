@@ -573,7 +573,7 @@ static void socket_timer_expire_cb(uv_timer_t *handle) {
 
     c = CONTAINER_OF(handle, struct socket_ctx, timer_handle);
     c->result = UV_ETIMEDOUT;
-    do_next(c->tunnel);
+    do_kill(c->tunnel); //do_next(c->tunnel);
 }
 
 static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname) {
