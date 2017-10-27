@@ -209,7 +209,7 @@ static enum sess_state do_handshake(struct tunnel_ctx *cx) {
 
     if (size != 0) {
         /* Could allow a round-trip saving shortcut here if the requested auth
-        * method is S5_AUTH_NONE (provided unauthenticated traffic is allowed.)
+        * method is s5_auth_none (provided unauthenticated traffic is allowed.)
         * Requires client support however.
         */
         pr_err("junk in handshake");
@@ -222,13 +222,13 @@ static enum sess_state do_handshake(struct tunnel_ctx *cx) {
     }
 
     methods = s5_auth_methods(parser);
-    if ((methods & S5_AUTH_NONE) && can_auth_none(cx->lx, cx)) {
-        s5_select_auth(parser, S5_AUTH_NONE);
+    if ((methods & s5_auth_none) && can_auth_none(cx->lx, cx)) {
+        s5_select_auth(parser, s5_auth_none);
         socket_write(incoming, "\5\0", 2);  /* No auth required. */
         return s_req_start;
     }
 
-    if ((methods & S5_AUTH_PASSWD) && can_auth_passwd(cx->lx, cx)) {
+    if ((methods & s5_auth_passwd) && can_auth_passwd(cx->lx, cx)) {
         /* TODO(bnoordhuis) Implement username/password auth. */
     }
 
