@@ -47,11 +47,6 @@ typedef enum s5_auth_method {
     s5_auth_passwd = 1 << 2
 } s5_auth_method;
 
-typedef enum s5_auth_result {
-    s5_auth_allow,
-    s5_auth_deny
-} s5_auth_result;
-
 typedef enum s5_atyp {
     s5_atyp_ipv4,
     s5_atyp_ipv6,
@@ -88,9 +83,9 @@ typedef struct s5_ctx {
     uint32_t arg0;  /* Scratch space for the state machine. */
     uint32_t arg1;  /* Scratch space for the state machine. */
     enum s5_state state;
-    uint8_t methods;
-    uint8_t cmd;
-    uint8_t atyp;
+    enum s5_auth_method methods;
+    enum s5_cmd cmd;
+    enum s5_atyp atyp;
     uint8_t userlen;
     uint8_t passlen;
     uint16_t dport;
@@ -104,7 +99,7 @@ void s5_init(s5_ctx *ctx);
 s5_err s5_parse(s5_ctx *cx, uint8_t **data, size_t *size);
 
 /* Only call after s5_parse() has returned s5_want_auth_method. */
-uint8_t s5_auth_methods(const s5_ctx *cx);
+enum s5_auth_method s5_auth_methods(const s5_ctx *cx);
 
 /* Call after s5_parse() has returned s5_want_auth_method. */
 int s5_select_auth(s5_ctx *cx, s5_auth_method method);

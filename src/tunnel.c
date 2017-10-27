@@ -178,7 +178,7 @@ static void do_next(struct tunnel_ctx *cx) {
 }
 
 static enum sess_state do_handshake(struct tunnel_ctx *cx) {
-    uint8_t methods;
+    enum s5_auth_method methods;
     struct socket_ctx *incoming;
     s5_ctx *parser;
     uint8_t *data;
@@ -265,7 +265,7 @@ static enum sess_state do_req_parse(struct tunnel_ctx *cx) {
     s5_ctx *parser;
     uint8_t *data;
     size_t size;
-    int err;
+    enum s5_err err;
 
     parser = &cx->parser;
     incoming = &cx->incoming;
@@ -492,11 +492,11 @@ static enum sess_state do_proxy_start(struct tunnel_ctx *cx) {
 
 /* Proxy incoming data back and forth. */
 static enum sess_state do_proxy(struct tunnel_ctx *cx) {
-    if (socket_cycle("client", &cx->incoming, &cx->outgoing)) {
+    if (socket_cycle("client", &cx->incoming, &cx->outgoing) != 0) {
         return do_kill(cx);
     }
 
-    if (socket_cycle("upstream", &cx->outgoing, &cx->incoming)) {
+    if (socket_cycle("upstream", &cx->outgoing, &cx->incoming) != 0) {
         return do_kill(cx);
     }
 
@@ -530,6 +530,10 @@ static enum sess_state do_almost_dead(struct tunnel_ctx *cx) {
 }
 
 static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx *b) {
+    if (a->rdstate == socket_dead || b->rdstate == socket_dead) {
+        return -1;
+    }
+
     if (a->result < 0) {
         if (a->result != UV_EOF) {
             pr_err("%s error: %s", who, uv_strerror((int)a->result));
@@ -626,12 +630,14 @@ static int socket_connect(struct socket_ctx *c) {
 static void socket_connect_done_cb(uv_connect_t *req, int status) {
     struct socket_ctx *c;
 
+    c = CONTAINER_OF(req, struct socket_ctx, t.connect_req);
+    c->result = status;
+
     if (status == UV_ECANCELED) {
+        do_kill(c->tunnel);
         return;  /* Handle has been closed. */
     }
 
-    c = CONTAINER_OF(req, struct socket_ctx, t.connect_req);
-    c->result = status;
     do_next(c->tunnel);
 }
 

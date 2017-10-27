@@ -25,6 +25,10 @@
 #include <stdlib.h>  /* abort() */
 #include <string.h>  /* memset() */
 
+//
+// https://zh.wikipedia.org/zh-hans/SOCKS
+//
+
 void s5_init(s5_ctx *cx) {
     memset(cx, 0, sizeof(*cx));
     cx->state = s5_state_version;
@@ -140,10 +144,12 @@ s5_err s5_parse(s5_ctx *cx, uint8_t **data, size_t *size) {
             case 1:  /* TCP connect */
                 cx->cmd = s5_cmd_tcp_connect;
                 break;
+            case 2: /* TCP bind request*/
+                cx->cmd = s5_cmd_tcp_bind;
+                break;
             case 3:  /* UDP associate */
                 cx->cmd = s5_cmd_udp_assoc;
                 break;
-            case 2: /* TCP bind request*/
             default:
                 err = s5_bad_cmd;
                 goto out;
@@ -221,7 +227,7 @@ out:
     return err;
 }
 
-uint8_t s5_auth_methods(const s5_ctx *cx) {
+enum s5_auth_method s5_auth_methods(const s5_ctx *cx) {
     return cx->methods;
 }
 
