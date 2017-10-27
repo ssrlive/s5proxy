@@ -101,12 +101,7 @@ enum sess_state {
     s_proxy_start,      /* Connected. Start piping data. */
     s_proxy,            /* Connected. Pipe data back and forth. */
     s_kill,             /* Tear down session. */
-    s_almost_dead_0,    /* Waiting for finalizers to complete. */
-    s_almost_dead_1,    /* Waiting for finalizers to complete. */
-    s_almost_dead_2,    /* Waiting for finalizers to complete. */
-    s_almost_dead_3,    /* Waiting for finalizers to complete. */
-    s_almost_dead_4,    /* Waiting for finalizers to complete. */
-    s_dead              /* Dead. Safe to free now. */
+    s_dead,             /* Dead. Safe to free now. */
 };
 
 struct tunnel_ctx {
@@ -115,6 +110,7 @@ struct tunnel_ctx {
     s5_ctx parser;  /* The SOCKS protocol parser. */
     struct socket_ctx incoming;  /* Connection with the SOCKS client. */
     struct socket_ctx outgoing;  /* Connection with upstream. */
+    int ref_count;
 };
 
 /* listener.c */

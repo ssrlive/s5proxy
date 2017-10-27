@@ -67,7 +67,6 @@ static enum sess_state do_req_connect(struct tunnel_ctx *cx);
 static enum sess_state do_proxy_start(struct tunnel_ctx *cx);
 static enum sess_state do_proxy(struct tunnel_ctx *cx);
 static enum sess_state do_kill(struct tunnel_ctx *cx);
-static enum sess_state do_almost_dead(struct tunnel_ctx *cx);
 static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx *b);
 static void socket_timer_reset(struct socket_ctx *c);
 static void socket_timer_expire_cb(uv_timer_t *handle);
@@ -82,6 +81,22 @@ static void socket_write(struct socket_ctx *c, const void *data, size_t len);
 static void socket_write_done_cb(uv_write_t *req, int status);
 static void socket_close(struct socket_ctx *c);
 static void socket_close_done_cb(uv_handle_t *handle);
+
+int tunnel_count = 0;
+void tunnel_add_ref(struct tunnel_ctx *t) {
+    t->ref_count++;
+}
+
+int tunnel_release(struct tunnel_ctx *t) {
+    t->ref_count--;
+    if (t->ref_count <= 0) {
+        tunnel_count--;
+        pr_info("tunnel %016x destroyed, total tunnel %08d", t, tunnel_count);
+        free(t);
+        return 0;
+    }
+    return t->ref_count;
+}
 
 /* |incoming| has been initialized by listener.c when this is called. */
 void tunnel_initialize(struct listener_ctx *lx) {
@@ -115,6 +130,9 @@ void tunnel_initialize(struct listener_ctx *lx) {
     outgoing->idle_timeout = lx->idle_timeout;
     CHECK(0 == uv_tcp_init(loop, &outgoing->handle.tcp));
     CHECK(0 == uv_timer_init(loop, &outgoing->timer_handle));
+
+    tunnel_add_ref(tunnel);
+    tunnel_count++;
 
     /* Wait for the initial packet. */
     socket_read(incoming);
@@ -157,24 +175,10 @@ static void do_next(struct tunnel_ctx *cx) {
     case s_kill:
         new_state = do_kill(cx);
         break;
-    case s_almost_dead_0:
-    case s_almost_dead_1:
-    case s_almost_dead_2:
-    case s_almost_dead_3:
-    case s_almost_dead_4:
-        new_state = do_almost_dead(cx);
-        break;
     default:
         UNREACHABLE();
     }
     cx->state = new_state;
-
-    if (cx->state == s_dead) {
-        if (DEBUG_CHECKS) {
-            memset(cx, -1, sizeof(*cx));
-        }
-        free(cx);
-    }
 }
 
 static enum sess_state do_handshake(struct tunnel_ctx *cx) {
@@ -504,29 +508,21 @@ static enum sess_state do_proxy(struct tunnel_ctx *cx) {
 }
 
 static enum sess_state do_kill(struct tunnel_ctx *cx) {
-    enum sess_state new_state;
-
-    if (cx->state >= s_almost_dead_0) {
-        return cx->state;
-    }
+    enum sess_state new_state = s_dead;
 
     /* Try to cancel the request. The callback still runs but if the
     * cancellation succeeded, it gets called with status=UV_ECANCELED.
     */
-    new_state = s_almost_dead_1;
     if (cx->state == s_req_lookup) {
-        new_state = s_almost_dead_0;
         uv_cancel(&cx->outgoing.t.req);
     }
 
     socket_close(&cx->incoming);
     socket_close(&cx->outgoing);
-    return new_state;
-}
 
-static enum sess_state do_almost_dead(struct tunnel_ctx *cx) {
-    ASSERT(cx->state >= s_almost_dead_0);
-    return cx->state + 1;  /* Another finalizer completed. */
+    tunnel_release(cx);
+
+    return new_state;
 }
 
 static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx *b) {
@@ -643,6 +639,7 @@ static void socket_connect_done_cb(uv_connect_t *req, int status) {
 
 static void socket_read(struct socket_ctx *c) {
     ASSERT(c->rdstate == socket_stop);
+    tunnel_add_ref(c->tunnel);
     CHECK(0 == uv_read_start(&c->handle.stream, socket_alloc_cb, socket_read_done_cb));
     c->rdstate = socket_busy;
     socket_timer_reset(c);
@@ -654,6 +651,10 @@ static void socket_read_done_cb(uv_stream_t *handle, ssize_t nread, const uv_buf
 
     c = CONTAINER_OF(handle, struct socket_ctx, handle);
     t = c->tunnel;
+
+    if (tunnel_release(t) <= 0) {
+        return;
+    }
 
     if (nread <= 0) {
         // http://docs.libuv.org/en/v1.x/stream.html
@@ -686,6 +687,8 @@ static void socket_write(struct socket_ctx *c, const void *data, size_t len) {
     ASSERT(c->wrstate == socket_stop || c->wrstate == socket_done);
     c->wrstate = socket_busy;
 
+    tunnel_add_ref(c->tunnel);
+
     /* It's okay to cast away constness here, uv_write() won't modify the
     * memory.
     */
@@ -701,6 +704,10 @@ static void socket_write_done_cb(uv_write_t *req, int status) {
 
     c = CONTAINER_OF(req, struct socket_ctx, write_req);
     t = c->tunnel;
+
+    if (tunnel_release(t) <= 0) {
+        return;
+    }
 
     if (status == UV_ECANCELED) {
         return;  /* Handle has been closed. */
@@ -725,7 +732,11 @@ static void socket_close(struct socket_ctx *c) {
     c->wrstate = socket_dead;
     c->timer_handle.data = c;
     c->handle.handle.data = c;
+
+    tunnel_add_ref(c->tunnel);
     uv_close(&c->handle.handle, socket_close_done_cb);
+
+    tunnel_add_ref(c->tunnel);
     uv_close((uv_handle_t *)&c->timer_handle, socket_close_done_cb);
 }
 
@@ -736,5 +747,5 @@ static void socket_close_done_cb(uv_handle_t *handle) {
     c = handle->data;
     t = c->tunnel;
 
-    do_next(t);
+    tunnel_release(t);
 }
