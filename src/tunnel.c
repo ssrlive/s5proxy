@@ -650,13 +650,15 @@ static void socket_read(struct socket_ctx *c) {
 
 static void socket_read_done_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) {
     struct socket_ctx *c;
+    struct tunnel_ctx *t;
 
     c = CONTAINER_OF(handle, struct socket_ctx, handle);
+    t = c->tunnel;
 
     if (nread <= 0) {
         // http://docs.libuv.org/en/v1.x/stream.html
         ASSERT(nread == UV_EOF || nread == UV_ECONNRESET);
-        if (nread < 0) { do_kill(c->tunnel); }
+        if (nread < 0) { do_kill(t); }
         return;
     }
 
@@ -666,7 +668,7 @@ static void socket_read_done_cb(uv_stream_t *handle, ssize_t nread, const uv_buf
     c->result = nread;
 
     uv_read_stop(&c->handle.stream);
-    do_next(c->tunnel);
+    do_next(t);
 }
 
 static void socket_alloc_cb(uv_handle_t *handle, size_t size, uv_buf_t *buf) {
@@ -695,19 +697,22 @@ static void socket_write(struct socket_ctx *c, const void *data, size_t len) {
 
 static void socket_write_done_cb(uv_write_t *req, int status) {
     struct socket_ctx *c;
+    struct tunnel_ctx *t;
+
+    c = CONTAINER_OF(req, struct socket_ctx, write_req);
+    t = c->tunnel;
 
     if (status == UV_ECANCELED) {
         return;  /* Handle has been closed. */
     }
 
-    c = CONTAINER_OF(req, struct socket_ctx, write_req);
     if (c->wrstate == socket_dead) {
         return;
     }
     ASSERT(c->wrstate == socket_busy);
     c->wrstate = socket_done;
     c->result = status;
-    do_next(c->tunnel);
+    do_next(t);
 }
 
 static void socket_close(struct socket_ctx *c) {
@@ -726,7 +731,10 @@ static void socket_close(struct socket_ctx *c) {
 
 static void socket_close_done_cb(uv_handle_t *handle) {
     struct socket_ctx *c;
+    struct tunnel_ctx *t;
 
     c = handle->data;
-    do_next(c->tunnel);
+    t = c->tunnel;
+
+    do_next(t);
 }
