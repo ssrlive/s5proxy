@@ -58,10 +58,10 @@ struct listener_ctx {
 };
 
 enum socket_state {
-    socket_dead,
     socket_stop,  /* Stopped. */
     socket_busy,  /* Busy; waiting for incoming data or for a write to complete. */
     socket_done,  /* Done; read incoming data or write finished. */
+    socket_dead,
 };
 
 struct socket_ctx {
