@@ -91,20 +91,20 @@ struct socket_ctx {
 };
 
 /* Session states. */
-enum sess_state {
-    s_handshake,        /* Wait for client handshake. */
-    s_handshake_auth,   /* Wait for client authentication data. */
-    s_req_start,        /* Start waiting for request data. */
-    s_req_parse,        /* Wait for request data. */
-    s_req_lookup,       /* Wait for upstream hostname DNS lookup to complete. */
-    s_req_connect,      /* Wait for uv_tcp_connect() to complete. */
-    s_proxy_start,      /* Connected. Start piping data. */
-    s_proxy,            /* Connected. Pipe data back and forth. */
-    s_kill,             /* Tear down session. */
+enum session_state {
+    session_handshake,        /* Wait for client handshake. */
+    session_handshake_auth,   /* Wait for client authentication data. */
+    session_req_start,        /* Start waiting for request data. */
+    session_req_parse,        /* Wait for request data. */
+    session_req_lookup,       /* Wait for upstream hostname DNS lookup to complete. */
+    session_req_connect,      /* Wait for uv_tcp_connect() to complete. */
+    session_proxy_start,      /* Connected. Start piping data. */
+    session_proxy,            /* Connected. Pipe data back and forth. */
+    session_kill,             /* Tear down session. */
 };
 
 struct tunnel_ctx {
-    enum sess_state state;
+    enum session_state state;
     struct listener_ctx *lx;  /* Backlink to owning listener context. */
     s5_ctx parser;  /* The SOCKS protocol parser. */
     struct socket_ctx incoming;  /* Connection with the SOCKS client. */
