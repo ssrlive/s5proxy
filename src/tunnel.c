@@ -56,6 +56,8 @@
  * reads in the future.
  */
 
+static bool tunnel_is_dead(struct tunnel_ctx *tunnel);
+static void tunnel_release(struct tunnel_ctx *tunnel);
 static void do_next(struct tunnel_ctx *cx);
 static enum session_state do_handshake(struct tunnel_ctx *cx);
 static enum session_state do_handshake_auth(struct tunnel_ctx *cx);
@@ -82,14 +84,14 @@ static void socket_write_done_cb(uv_write_t *req, int status);
 static void socket_close(struct socket_ctx *c);
 static void socket_close_done_cb(uv_handle_t *handle);
 
-bool tunnel_is_dead(struct tunnel_ctx *tunnel) {
+static bool tunnel_is_dead(struct tunnel_ctx *tunnel) {
     return (tunnel->state == session_kill);
 }
 
-void tunnel_release(struct tunnel_ctx *tunnel) {
+static void tunnel_release(struct tunnel_ctx *tunnel) {
     tunnel->ref_count++;
     if (tunnel->ref_count == 4) {
-        //pr_info("tunnel %016x destroyed ref_count=%08d", tunnel, tunnel->ref_count);
+        //pr_info("tunnel %016x destroyed", tunnel);
         free(tunnel);
     }
 }
@@ -183,9 +185,6 @@ static enum session_state do_handshake(struct tunnel_ctx *cx) {
 
     parser = &cx->parser;
     incoming = &cx->incoming;
-    if (incoming->rdstate == socket_dead) {
-        return do_kill(cx);
-    }
     ASSERT(incoming->rdstate == socket_done);
     ASSERT(incoming->wrstate == socket_stop);
     incoming->rdstate = socket_stop;
@@ -266,10 +265,6 @@ static enum session_state do_req_parse(struct tunnel_ctx *cx) {
     parser = &cx->parser;
     incoming = &cx->incoming;
     outgoing = &cx->outgoing;
-
-    if (incoming->rdstate == socket_dead) {
-        return do_kill(cx);
-    }
 
     ASSERT(incoming->rdstate == socket_done);
     ASSERT(incoming->wrstate == socket_stop);
@@ -420,10 +415,6 @@ static enum session_state do_req_connect(struct tunnel_ctx *cx) {
     incoming = &cx->incoming;
     outgoing = &cx->outgoing;
 
-    if (incoming->rdstate == socket_dead || outgoing->rdstate == socket_dead) {
-        return do_kill(cx);
-    }
-
     ASSERT(incoming->rdstate == socket_stop);
     ASSERT(incoming->wrstate == socket_stop);
     ASSERT(outgoing->rdstate == socket_stop);
@@ -508,6 +499,7 @@ static enum session_state do_kill(struct tunnel_ctx *tunnel) {
     enum session_state new_state = session_kill;
 
     if (tunnel_is_dead(tunnel)) {
+        // ready for socket_timer_expire_cb call.
         return new_state;
     }
 
@@ -527,10 +519,6 @@ static enum session_state do_kill(struct tunnel_ctx *tunnel) {
 }
 
 static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx *b) {
-    if (a->rdstate == socket_dead || b->rdstate == socket_dead) {
-        return -1;
-    }
-
     if (a->result < 0) {
         if (a->result != UV_EOF) {
             pr_err("%s error: %s", who, uv_strerror((int)a->result));
@@ -729,9 +717,6 @@ static void socket_write_done_cb(uv_write_t *req, int status) {
         return;  /* Handle has been closed. */
     }
 
-    if (c->wrstate == socket_dead) {
-        return;
-    }
     ASSERT(c->wrstate == socket_busy);
     c->wrstate = socket_done;
     c->result = status;
@@ -739,9 +724,6 @@ static void socket_write_done_cb(uv_write_t *req, int status) {
 }
 
 static void socket_close(struct socket_ctx *c) {
-    if (c->rdstate == socket_dead || c->wrstate == socket_dead) {
-        return;
-    }
     ASSERT(c->rdstate != socket_dead);
     ASSERT(c->wrstate != socket_dead);
     c->rdstate = socket_dead;
