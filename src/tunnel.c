@@ -498,10 +498,7 @@ static enum session_state do_proxy(struct tunnel_ctx *cx) {
 static enum session_state do_kill(struct tunnel_ctx *tunnel) {
     enum session_state new_state = session_kill;
 
-    if (tunnel_is_dead(tunnel)) {
-        // ready for socket_timer_expire_cb call.
-        return new_state;
-    }
+    ASSERT(tunnel_is_dead(tunnel) == false);
 
     /* Try to cancel the request. The callback still runs but if the
     * cancellation succeeded, it gets called with status=UV_ECANCELED.
@@ -559,10 +556,18 @@ static void socket_timer_reset(struct socket_ctx *c) {
 
 static void socket_timer_expire_cb(uv_timer_t *handle) {
     struct socket_ctx *c;
+    struct tunnel_ctx *tunnel;
 
     c = CONTAINER_OF(handle, struct socket_ctx, timer_handle);
     c->result = UV_ETIMEDOUT;
-    do_kill(c->tunnel);
+
+    tunnel = c->tunnel;
+
+    if (tunnel_is_dead(tunnel)) {
+        return;
+    }
+
+    do_kill(tunnel);
 }
 
 static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname) {
