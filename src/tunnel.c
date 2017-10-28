@@ -192,7 +192,7 @@ static enum sess_state do_handshake(struct tunnel_ctx *cx) {
     parser = &cx->parser;
     incoming = &cx->incoming;
     if (incoming->rdstate == socket_dead) {
-        return s_kill;
+        return do_kill(cx);
     }
     ASSERT(incoming->rdstate == socket_done);
     ASSERT(incoming->wrstate == socket_stop);
@@ -276,7 +276,7 @@ static enum sess_state do_req_parse(struct tunnel_ctx *cx) {
     outgoing = &cx->outgoing;
 
     if (incoming->rdstate == socket_dead) {
-        return s_kill;
+        return do_kill(cx);
     }
 
     ASSERT(incoming->rdstate == socket_done);
@@ -573,17 +573,20 @@ static void socket_timer_expire_cb(uv_timer_t *handle) {
 
     c = CONTAINER_OF(handle, struct socket_ctx, timer_handle);
     c->result = UV_ETIMEDOUT;
-    do_kill(c->tunnel); //do_next(c->tunnel);
+    do_kill(c->tunnel);
 }
 
 static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname) {
     struct addrinfo hints;
+    struct tunnel_ctx *tunnel;
+
+    tunnel = c->tunnel;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
-    CHECK(0 == uv_getaddrinfo(c->tunnel->lx->tcp_handle.loop,
+    CHECK(0 == uv_getaddrinfo(tunnel->lx->tcp_handle.loop,
         &c->t.addrinfo_req,
         socket_getaddrinfo_done_cb,
         hostname,
@@ -594,9 +597,12 @@ static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname) {
 
 static void socket_getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *ai) {
     struct socket_ctx *c;
+    struct tunnel_ctx *tunnel;
 
     c = CONTAINER_OF(req, struct socket_ctx, t.addrinfo_req);
     c->result = status;
+
+    tunnel = c->tunnel;
 
     if (status == 0) {
         /* FIXME(bnoordhuis) Should try all addresses. */
@@ -610,7 +616,7 @@ static void socket_getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct
     }
 
     uv_freeaddrinfo(ai);
-    do_next(c->tunnel);
+    do_next(tunnel);
 }
 
 /* Assumes that c->t.sa contains a valid AF_INET or AF_INET6 address. */
@@ -625,16 +631,19 @@ static int socket_connect(struct socket_ctx *c) {
 
 static void socket_connect_done_cb(uv_connect_t *req, int status) {
     struct socket_ctx *c;
+    struct tunnel_ctx *tunnel;
 
     c = CONTAINER_OF(req, struct socket_ctx, t.connect_req);
     c->result = status;
 
+    tunnel = c->tunnel;
+
     if (status == UV_ECANCELED) {
-        do_kill(c->tunnel);
+        do_kill(tunnel);
         return;  /* Handle has been closed. */
     }
 
-    do_next(c->tunnel);
+    do_next(tunnel);
 }
 
 static void socket_read(struct socket_ctx *c) {
@@ -652,6 +661,8 @@ static void socket_read_done_cb(uv_stream_t *handle, ssize_t nread, const uv_buf
     c = CONTAINER_OF(handle, struct socket_ctx, handle);
     t = c->tunnel;
 
+    uv_read_stop(&c->handle.stream);
+
     if (tunnel_release(t) <= 0) {
         return;
     }
@@ -668,7 +679,6 @@ static void socket_read_done_cb(uv_stream_t *handle, ssize_t nread, const uv_buf
     c->rdstate = socket_done;
     c->result = nread;
 
-    uv_read_stop(&c->handle.stream);
     do_next(t);
 }
 
@@ -723,6 +733,7 @@ static void socket_write_done_cb(uv_write_t *req, int status) {
 }
 
 static void socket_close(struct socket_ctx *c) {
+    struct tunnel_ctx *t;
     if (c->rdstate == socket_dead || c->wrstate == socket_dead) {
         return;
     }
@@ -733,10 +744,12 @@ static void socket_close(struct socket_ctx *c) {
     c->timer_handle.data = c;
     c->handle.handle.data = c;
 
-    tunnel_add_ref(c->tunnel);
+    t = c->tunnel;
+
+    tunnel_add_ref(t);
     uv_close(&c->handle.handle, socket_close_done_cb);
 
-    tunnel_add_ref(c->tunnel);
+    tunnel_add_ref(t);
     uv_close((uv_handle_t *)&c->timer_handle, socket_close_done_cb);
 }
 
