@@ -82,20 +82,16 @@ static void socket_write_done_cb(uv_write_t *req, int status);
 static void socket_close(struct socket_ctx *c);
 static void socket_close_done_cb(uv_handle_t *handle);
 
-int tunnel_count = 0;
-void tunnel_add_ref(struct tunnel_ctx *tunnel) {
-    tunnel->ref_count++;
+bool tunnel_is_dead(struct tunnel_ctx *tunnel) {
+    return (tunnel->state == s_kill);
 }
 
-int tunnel_release(struct tunnel_ctx *tunnel) {
-    tunnel->ref_count--;
-    if (tunnel->ref_count <= 0) {
-        tunnel_count--;
-        pr_info("tunnel %016x destroyed, total tunnel %08d", tunnel, tunnel_count);
+void tunnel_release(struct tunnel_ctx *tunnel) {
+    tunnel->ref_count++;
+    if (tunnel->ref_count == 4) {
+        //pr_info("tunnel %016x destroyed ref_count=%08d", tunnel, tunnel->ref_count);
         free(tunnel);
-        return 0;
     }
-    return tunnel->ref_count;
 }
 
 /* |incoming| has been initialized by listener.c when this is called. */
@@ -130,9 +126,6 @@ void tunnel_initialize(struct listener_ctx *lx) {
     outgoing->idle_timeout = lx->idle_timeout;
     CHECK(0 == uv_tcp_init(loop, &outgoing->handle.tcp));
     CHECK(0 == uv_timer_init(loop, &outgoing->timer_handle));
-
-    tunnel_add_ref(tunnel);
-    tunnel_count++;
 
     /* Wait for the initial packet. */
     socket_read(incoming);
@@ -514,7 +507,7 @@ static enum sess_state do_proxy(struct tunnel_ctx *cx) {
 static enum sess_state do_kill(struct tunnel_ctx *tunnel) {
     enum sess_state new_state = s_kill;
 
-    if (tunnel->state == s_kill) {
+    if (tunnel_is_dead(tunnel)) {
         return new_state;
     }
 
@@ -529,8 +522,6 @@ static enum sess_state do_kill(struct tunnel_ctx *tunnel) {
     socket_close(&tunnel->outgoing);
 
     tunnel->state = new_state;
-
-    tunnel_release(tunnel);
 
     return new_state;
 }
@@ -592,8 +583,6 @@ static void socket_getaddrinfo(struct socket_ctx *c, const char *hostname) {
 
     tunnel = c->tunnel;
 
-    tunnel_add_ref(tunnel);
-
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -616,7 +605,7 @@ static void socket_getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct
 
     tunnel = c->tunnel;
 
-    if (tunnel_release(tunnel) <= 0) {
+    if (tunnel_is_dead(tunnel)) {
         return;
     }
 
@@ -638,7 +627,6 @@ static void socket_getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct
 /* Assumes that c->t.sa contains a valid AF_INET or AF_INET6 address. */
 static int socket_connect(struct socket_ctx *c) {
     ASSERT(c->t.addr.sa_family == AF_INET || c->t.addr.sa_family == AF_INET6);
-    tunnel_add_ref(c->tunnel);
     socket_timer_reset(c);
     return uv_tcp_connect(&c->t.connect_req,
         &c->handle.tcp,
@@ -655,7 +643,7 @@ static void socket_connect_done_cb(uv_connect_t *req, int status) {
 
     tunnel = c->tunnel;
 
-    if (tunnel_release(tunnel) <= 0) {
+    if (tunnel_is_dead(tunnel)) {
         return;
     }
 
@@ -669,7 +657,6 @@ static void socket_connect_done_cb(uv_connect_t *req, int status) {
 
 static void socket_read(struct socket_ctx *c) {
     ASSERT(c->rdstate == socket_stop);
-    tunnel_add_ref(c->tunnel);
     CHECK(0 == uv_read_start(&c->handle.stream, socket_alloc_cb, socket_read_done_cb));
     c->rdstate = socket_busy;
     socket_timer_reset(c);
@@ -684,7 +671,7 @@ static void socket_read_done_cb(uv_stream_t *handle, ssize_t nread, const uv_buf
 
     uv_read_stop(&c->handle.stream);
 
-    if (tunnel_release(tunnel) <= 0) {
+    if (tunnel_is_dead(tunnel)) {
         return;
     }
 
@@ -718,8 +705,6 @@ static void socket_write(struct socket_ctx *c, const void *data, size_t len) {
     ASSERT(c->wrstate == socket_stop || c->wrstate == socket_done);
     c->wrstate = socket_busy;
 
-    tunnel_add_ref(c->tunnel);
-
     /* It's okay to cast away constness here, uv_write() won't modify the
     * memory.
     */
@@ -736,7 +721,7 @@ static void socket_write_done_cb(uv_write_t *req, int status) {
     c = CONTAINER_OF(req, struct socket_ctx, write_req);
     tunnel = c->tunnel;
 
-    if (tunnel_release(tunnel) <= 0) {
+    if (tunnel_is_dead(tunnel)) {
         return;
     }
 
@@ -754,7 +739,6 @@ static void socket_write_done_cb(uv_write_t *req, int status) {
 }
 
 static void socket_close(struct socket_ctx *c) {
-    struct tunnel_ctx *tunnel;
     if (c->rdstate == socket_dead || c->wrstate == socket_dead) {
         return;
     }
@@ -765,12 +749,7 @@ static void socket_close(struct socket_ctx *c) {
     c->timer_handle.data = c;
     c->handle.handle.data = c;
 
-    tunnel = c->tunnel;
-
-    tunnel_add_ref(tunnel);
     uv_close(&c->handle.handle, socket_close_done_cb);
-
-    tunnel_add_ref(tunnel);
     uv_close((uv_handle_t *)&c->timer_handle, socket_close_done_cb);
 }
 
