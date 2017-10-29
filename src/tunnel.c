@@ -84,14 +84,21 @@ static void socket_write_done_cb(uv_write_t *req, int status);
 static void socket_close(struct socket_ctx *c);
 static void socket_close_done_cb(uv_handle_t *handle);
 
+int tunnel_count = 0;
+
 static bool tunnel_is_dead(struct tunnel_ctx *tunnel) {
     return (tunnel->state == session_kill);
 }
 
+static void tunnel_add_ref(struct tunnel_ctx *tunnel) {
+    tunnel->ref_count++;
+}
+
 static void tunnel_release(struct tunnel_ctx *tunnel) {
-    tunnel->release_count++;
-    if (tunnel->release_count == 4) {
-        //pr_info("tunnel %016x destroyed", tunnel);
+    tunnel->ref_count--;
+    if (tunnel->ref_count == 0) {
+        tunnel_count--;
+        pr_info("tunnel %016x destroyed, tunnel_count=%08d", tunnel, tunnel_count);
         free(tunnel);
     }
 }
@@ -104,10 +111,13 @@ void tunnel_initialize(struct listener_ctx *lx) {
     uv_stream_t *server = (uv_stream_t *)&lx->tcp_handle;
     uv_loop_t *loop = server->loop;
 
+    tunnel_count++;
+
     tunnel = xmalloc(sizeof(*tunnel));
 
     tunnel->lx = lx;
     tunnel->state = session_handshake;
+    tunnel->ref_count = 0;
     s5_init(&tunnel->parser);
 
     incoming = &tunnel->incoming;
@@ -729,6 +739,7 @@ static void socket_write_done_cb(uv_write_t *req, int status) {
 }
 
 static void socket_close(struct socket_ctx *c) {
+    struct tunnel_ctx *tunnel = c->tunnel;
     ASSERT(c->rdstate != socket_dead);
     ASSERT(c->wrstate != socket_dead);
     c->rdstate = socket_dead;
@@ -736,7 +747,9 @@ static void socket_close(struct socket_ctx *c) {
     c->timer_handle.data = c;
     c->handle.handle.data = c;
 
+    tunnel_add_ref(tunnel);
     uv_close(&c->handle.handle, socket_close_done_cb);
+    tunnel_add_ref(tunnel);
     uv_close((uv_handle_t *)&c->timer_handle, socket_close_done_cb);
 }
 
