@@ -57,6 +57,7 @@
  */
 
 static bool tunnel_is_dead(struct tunnel_ctx *tunnel);
+static void tunnel_add_ref(struct tunnel_ctx *tunnel);
 static void tunnel_release(struct tunnel_ctx *tunnel);
 static void do_next(struct tunnel_ctx *cx);
 static enum session_state do_handshake(struct tunnel_ctx *cx);
