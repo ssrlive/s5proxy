@@ -89,8 +89,8 @@ static bool tunnel_is_dead(struct tunnel_ctx *tunnel) {
 }
 
 static void tunnel_release(struct tunnel_ctx *tunnel) {
-    tunnel->ref_count++;
-    if (tunnel->ref_count == 4) {
+    tunnel->release_count++;
+    if (tunnel->release_count == 4) {
         //pr_info("tunnel %016x destroyed", tunnel);
         free(tunnel);
     }

@@ -109,7 +109,7 @@ struct tunnel_ctx {
     s5_ctx parser;  /* The SOCKS protocol parser. */
     struct socket_ctx incoming;  /* Connection with the SOCKS client. */
     struct socket_ctx outgoing;  /* Connection with upstream. */
-    int ref_count;
+    int release_count;
 };
 
 /* listener.c */
