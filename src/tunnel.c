@@ -98,7 +98,7 @@ static void tunnel_release(struct tunnel_ctx *tunnel) {
     tunnel->ref_count--;
     if (tunnel->ref_count == 0) {
         tunnel_count--;
-        pr_info("tunnel %016x destroyed, tunnel_count=%08d", tunnel, tunnel_count);
+        // pr_info("tunnel %016x destroyed, tunnel_count=%08d", tunnel, tunnel_count);
         free(tunnel);
     }
 }
