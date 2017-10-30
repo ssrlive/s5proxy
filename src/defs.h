@@ -101,7 +101,7 @@ enum session_state {
     session_proxy_start,      /* Connected. Start piping data. */
     session_proxy,            /* Connected. Pipe data back and forth. */
     session_kill,             /* Tear down session. */
-    session_dead,
+    session_dead,             /* Dead. Safe to free now. */
 };
 
 struct tunnel_ctx {
