@@ -730,6 +730,7 @@ static void socket_write_done_cb(uv_write_t *req, int status) {
     }
 
     if (status == UV_ECANCELED) {
+        do_kill(tunnel);
         return;  /* Handle has been closed. */
     }
 
