@@ -59,17 +59,17 @@
 static bool tunnel_is_dead(struct tunnel_ctx *tunnel);
 static void tunnel_add_ref(struct tunnel_ctx *tunnel);
 static void tunnel_release(struct tunnel_ctx *tunnel);
-static void do_next(struct tunnel_ctx *cx);
-static enum session_state do_handshake(struct tunnel_ctx *cx);
-static enum session_state do_handshake_auth(struct tunnel_ctx *cx);
-static enum session_state do_req_start(struct tunnel_ctx *cx);
-static enum session_state do_req_parse(struct tunnel_ctx *cx);
-static enum session_state do_req_lookup(struct tunnel_ctx *cx);
-static enum session_state do_req_connect_start(struct tunnel_ctx *cx);
-static enum session_state do_req_connect(struct tunnel_ctx *cx);
-static enum session_state do_proxy_start(struct tunnel_ctx *cx);
-static enum session_state do_proxy(struct tunnel_ctx *cx);
-static enum session_state do_kill(struct tunnel_ctx *cx);
+static void do_next(struct tunnel_ctx *tunnel);
+static enum session_state do_handshake(struct tunnel_ctx *tunnel);
+static enum session_state do_handshake_auth(struct tunnel_ctx *tunnel);
+static enum session_state do_req_start(struct tunnel_ctx *tunnel);
+static enum session_state do_req_parse(struct tunnel_ctx *tunnel);
+static enum session_state do_req_lookup(struct tunnel_ctx *tunnel);
+static enum session_state do_req_connect_start(struct tunnel_ctx *tunnel);
+static enum session_state do_req_connect(struct tunnel_ctx *tunnel);
+static enum session_state do_proxy_start(struct tunnel_ctx *tunnel);
+static enum session_state do_proxy(struct tunnel_ctx *tunnel);
+static enum session_state do_kill(struct tunnel_ctx *tunnel);
 static int socket_cycle(const char *who, struct socket_ctx *a, struct socket_ctx *b);
 static void socket_timer_reset(struct socket_ctx *c);
 static void socket_timer_expire_cb(uv_timer_t *handle);
@@ -149,44 +149,44 @@ void tunnel_initialize(struct listener_ctx *lx) {
  * end up (if all goes well) in the proxy state where we're just proxying
  * data between the client and upstream.
  */
-static void do_next(struct tunnel_ctx *cx) {
+static void do_next(struct tunnel_ctx *tunnel) {
     enum session_state new_state = session_kill;
 
-    switch (cx->state) {
+    switch (tunnel->state) {
     case session_handshake:
-        new_state = do_handshake(cx);
+        new_state = do_handshake(tunnel);
         break;
     case session_handshake_auth:
-        new_state = do_handshake_auth(cx);
+        new_state = do_handshake_auth(tunnel);
         break;
     case session_req_start:
-        new_state = do_req_start(cx);
+        new_state = do_req_start(tunnel);
         break;
     case session_req_parse:
-        new_state = do_req_parse(cx);
+        new_state = do_req_parse(tunnel);
         break;
     case session_req_lookup:
-        new_state = do_req_lookup(cx);
+        new_state = do_req_lookup(tunnel);
         break;
     case session_req_connect:
-        new_state = do_req_connect(cx);
+        new_state = do_req_connect(tunnel);
         break;
     case session_proxy_start:
-        new_state = do_proxy_start(cx);
+        new_state = do_proxy_start(tunnel);
         break;
     case session_proxy:
-        new_state = do_proxy(cx);
+        new_state = do_proxy(tunnel);
         break;
     case session_kill:
-        new_state = do_kill(cx);
+        new_state = do_kill(tunnel);
         break;
     default:
         UNREACHABLE();
     }
-    cx->state = new_state;
+    tunnel->state = new_state;
 }
 
-static enum session_state do_handshake(struct tunnel_ctx *cx) {
+static enum session_state do_handshake(struct tunnel_ctx *tunnel) {
     enum s5_auth_method methods;
     struct socket_ctx *incoming;
     s5_ctx *parser;
@@ -194,15 +194,15 @@ static enum session_state do_handshake(struct tunnel_ctx *cx) {
     size_t size;
     enum s5_err err;
 
-    parser = &cx->parser;
-    incoming = &cx->incoming;
+    parser = &tunnel->parser;
+    incoming = &tunnel->incoming;
     ASSERT(incoming->rdstate == socket_done);
     ASSERT(incoming->wrstate == socket_stop);
     incoming->rdstate = socket_stop;
 
     if (incoming->result < 0) {
         pr_err("read error: %s", uv_strerror((int)incoming->result));
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     data = (uint8_t *)incoming->t.buf;
@@ -219,22 +219,22 @@ static enum session_state do_handshake(struct tunnel_ctx *cx) {
         * Requires client support however.
         */
         pr_err("junk in handshake");
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     if (err != s5_auth_select) {
         pr_err("handshake error: %s", s5_strerror(err));
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     methods = s5_auth_methods(parser);
-    if ((methods & s5_auth_none) && can_auth_none(cx->lx, cx)) {
+    if ((methods & s5_auth_none) && can_auth_none(tunnel->lx, tunnel)) {
         s5_select_auth(parser, s5_auth_none);
         socket_write(incoming, "\5\0", 2);  /* No auth required. */
         return session_req_start;
     }
 
-    if ((methods & s5_auth_passwd) && can_auth_passwd(cx->lx, cx)) {
+    if ((methods & s5_auth_passwd) && can_auth_passwd(tunnel->lx, tunnel)) {
         /* TODO(bnoordhuis) Implement username/password auth. */
     }
 
@@ -243,29 +243,29 @@ static enum session_state do_handshake(struct tunnel_ctx *cx) {
 }
 
 /* TODO(bnoordhuis) Implement username/password auth. */
-static enum session_state do_handshake_auth(struct tunnel_ctx *cx) {
+static enum session_state do_handshake_auth(struct tunnel_ctx *tunnel) {
     UNREACHABLE();
-    return do_kill(cx);
+    return do_kill(tunnel);
 }
 
-static enum session_state do_req_start(struct tunnel_ctx *cx) {
+static enum session_state do_req_start(struct tunnel_ctx *tunnel) {
     struct socket_ctx *incoming;
 
-    incoming = &cx->incoming;
+    incoming = &tunnel->incoming;
     ASSERT(incoming->rdstate == socket_stop);
     ASSERT(incoming->wrstate == socket_done);
     incoming->wrstate = socket_stop;
 
     if (incoming->result < 0) {
         pr_err("write error: %s", uv_strerror((int)incoming->result));
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     socket_read(incoming);
     return session_req_parse;
 }
 
-static enum session_state do_req_parse(struct tunnel_ctx *cx) {
+static enum session_state do_req_parse(struct tunnel_ctx *tunnel) {
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
     s5_ctx *parser;
@@ -273,9 +273,9 @@ static enum session_state do_req_parse(struct tunnel_ctx *cx) {
     size_t size;
     enum s5_err err;
 
-    parser = &cx->parser;
-    incoming = &cx->incoming;
-    outgoing = &cx->outgoing;
+    parser = &tunnel->parser;
+    incoming = &tunnel->incoming;
+    outgoing = &tunnel->outgoing;
 
     ASSERT(incoming->rdstate == socket_done);
     ASSERT(incoming->wrstate == socket_stop);
@@ -285,7 +285,7 @@ static enum session_state do_req_parse(struct tunnel_ctx *cx) {
 
     if (incoming->result < 0) {
         pr_err("read error: %s", uv_strerror((int)incoming->result));
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     data = (uint8_t *)incoming->t.buf;
@@ -298,18 +298,18 @@ static enum session_state do_req_parse(struct tunnel_ctx *cx) {
 
     if (size != 0) {
         pr_err("junk in request %u", (unsigned)size);
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     if (err != s5_exec_cmd) {
         pr_err("request error: %s", s5_strerror(err));
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     if (parser->cmd == s5_cmd_tcp_bind) {
         /* Not supported but relatively straightforward to implement. */
         pr_warn("BIND requests are not supported.");
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     if (parser->cmd == s5_cmd_udp_assoc) {
@@ -317,7 +317,7 @@ static enum session_state do_req_parse(struct tunnel_ctx *cx) {
         * functionality for detecting the MTU size which the RFC mandates.
         */
         pr_warn("UDP ASSOC requests are not supported.");
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
     ASSERT(parser->cmd == s5_cmd_tcp_connect);
 
@@ -344,17 +344,17 @@ static enum session_state do_req_parse(struct tunnel_ctx *cx) {
         UNREACHABLE();
     }
 
-    return do_req_connect_start(cx);
+    return do_req_connect_start(tunnel);
 }
 
-static enum session_state do_req_lookup(struct tunnel_ctx *cx) {
+static enum session_state do_req_lookup(struct tunnel_ctx *tunnel) {
     s5_ctx *parser;
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
 
-    parser = &cx->parser;
-    incoming = &cx->incoming;
-    outgoing = &cx->outgoing;
+    parser = &tunnel->parser;
+    incoming = &tunnel->incoming;
+    outgoing = &tunnel->outgoing;
     ASSERT(incoming->rdstate == socket_stop);
     ASSERT(incoming->wrstate == socket_stop);
     ASSERT(outgoing->rdstate == socket_stop);
@@ -382,23 +382,23 @@ static enum session_state do_req_lookup(struct tunnel_ctx *cx) {
         UNREACHABLE();
     }
 
-    return do_req_connect_start(cx);
+    return do_req_connect_start(tunnel);
 }
 
 /* Assumes that cx->outgoing.t.sa contains a valid AF_INET/AF_INET6 address. */
-static enum session_state do_req_connect_start(struct tunnel_ctx *cx) {
+static enum session_state do_req_connect_start(struct tunnel_ctx *tunnel) {
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
     int err;
 
-    incoming = &cx->incoming;
-    outgoing = &cx->outgoing;
+    incoming = &tunnel->incoming;
+    outgoing = &tunnel->outgoing;
     ASSERT(incoming->rdstate == socket_stop);
     ASSERT(incoming->wrstate == socket_stop);
     ASSERT(outgoing->rdstate == socket_stop);
     ASSERT(outgoing->wrstate == socket_stop);
 
-    if (!can_access(cx->lx, cx, &outgoing->t.addr)) {
+    if (!can_access(tunnel->lx, tunnel, &outgoing->t.addr)) {
         pr_warn("connection not allowed by ruleset");
         /* Send a 'Connection not allowed by ruleset' reply. */
         socket_write(incoming, "\5\2\0\1\0\0\0\0\0\0", 10);
@@ -408,13 +408,13 @@ static enum session_state do_req_connect_start(struct tunnel_ctx *cx) {
     err = socket_connect(outgoing);
     if (err != 0) {
         pr_err("connect error: %s\n", uv_strerror(err));
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     return session_req_connect;
 }
 
-static enum session_state do_req_connect(struct tunnel_ctx *cx) {
+static enum session_state do_req_connect(struct tunnel_ctx *tunnel) {
     const struct sockaddr_in6 *in6;
     const struct sockaddr_in *in;
     char addr_storage[sizeof(*in6)];
@@ -423,8 +423,8 @@ static enum session_state do_req_connect(struct tunnel_ctx *cx) {
     uint8_t *buf;
     int addrlen;
 
-    incoming = &cx->incoming;
-    outgoing = &cx->outgoing;
+    incoming = &tunnel->incoming;
+    outgoing = &tunnel->outgoing;
 
     ASSERT(incoming->rdstate == socket_stop);
     ASSERT(incoming->wrstate == socket_stop);
@@ -468,15 +468,15 @@ static enum session_state do_req_connect(struct tunnel_ctx *cx) {
     }
 
     UNREACHABLE();
-    return do_kill(cx);
+    return do_kill(tunnel);
 }
 
-static enum session_state do_proxy_start(struct tunnel_ctx *cx) {
+static enum session_state do_proxy_start(struct tunnel_ctx *tunnel) {
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
 
-    incoming = &cx->incoming;
-    outgoing = &cx->outgoing;
+    incoming = &tunnel->incoming;
+    outgoing = &tunnel->outgoing;
     ASSERT(incoming->rdstate == socket_stop);
     ASSERT(incoming->wrstate == socket_done);
     ASSERT(outgoing->rdstate == socket_stop);
@@ -485,7 +485,7 @@ static enum session_state do_proxy_start(struct tunnel_ctx *cx) {
 
     if (incoming->result < 0) {
         pr_err("write error: %s", uv_strerror((int)incoming->result));
-        return do_kill(cx);
+        return do_kill(tunnel);
     }
 
     socket_read(incoming);
@@ -494,13 +494,13 @@ static enum session_state do_proxy_start(struct tunnel_ctx *cx) {
 }
 
 /* Proxy incoming data back and forth. */
-static enum session_state do_proxy(struct tunnel_ctx *cx) {
-    if (socket_cycle("client", &cx->incoming, &cx->outgoing) != 0) {
-        return do_kill(cx);
+static enum session_state do_proxy(struct tunnel_ctx *tunnel) {
+    if (socket_cycle("client", &tunnel->incoming, &tunnel->outgoing) != 0) {
+        return do_kill(tunnel);
     }
 
-    if (socket_cycle("upstream", &cx->outgoing, &cx->incoming) != 0) {
-        return do_kill(cx);
+    if (socket_cycle("upstream", &tunnel->outgoing, &tunnel->incoming) != 0) {
+        return do_kill(tunnel);
     }
 
     return session_proxy;

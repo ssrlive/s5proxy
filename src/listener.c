@@ -33,8 +33,8 @@ struct server_state {
     struct listener_ctx *listeners;
 };
 
-static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs);
-static void on_listener_cb(uv_stream_t *server, int status);
+static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs);
+static void listen_incoming_connection_cb(uv_stream_t *server, int status);
 
 int listener_run(struct server_config *cf, uv_loop_t *loop) {
     struct addrinfo hints;
@@ -56,13 +56,13 @@ int listener_run(struct server_config *cf, uv_loop_t *loop) {
     uv_getaddrinfo_t *req = (uv_getaddrinfo_t *)malloc(sizeof(*req));
     req->data = state;
 
-    err = uv_getaddrinfo(loop, req, on_bind_cb, cf->bind_host, NULL, &hints);
+    err = uv_getaddrinfo(loop, req, getaddrinfo_done_cb, cf->bind_host, NULL, &hints);
     if (err != 0) {
         pr_err("getaddrinfo: %s", uv_strerror(err));
         return err;
     }
 
-    /* Start the event loop.  Control continues in on_bind_cb(). */
+    /* Start the event loop.  Control continues in getaddrinfo_done_cb(). */
     if (uv_run(loop, UV_RUN_DEFAULT)) {
         abort();
     }
@@ -79,7 +79,7 @@ int listener_run(struct server_config *cf, uv_loop_t *loop) {
 }
 
 /* Bind a server to each address that getaddrinfo() reported. */
-static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
+static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs) {
     char addrbuf[INET6_ADDRSTRLEN + 1];
     unsigned int ipv4_naddrs;
     unsigned int ipv6_naddrs;
@@ -160,7 +160,7 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
         err = uv_tcp_bind(&lx->tcp_handle, &s.addr, 0);
         if (err == 0) {
             what = "uv_listen";
-            err = uv_listen((uv_stream_t *)&lx->tcp_handle, 128, on_listener_cb);
+            err = uv_listen((uv_stream_t *)&lx->tcp_handle, 128, listen_incoming_connection_cb);
         }
 
         if (err != 0) {
@@ -179,7 +179,7 @@ static void on_bind_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs
     uv_freeaddrinfo(addrs);
 }
 
-static void on_listener_cb(uv_stream_t *server, int status) {
+static void listen_incoming_connection_cb(uv_stream_t *server, int status) {
     struct listener_ctx *lx;
 
     CHECK(status == 0);
