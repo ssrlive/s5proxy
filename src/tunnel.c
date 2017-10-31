@@ -479,7 +479,8 @@ static void do_req_connect(struct tunnel_ctx *tunnel) {
         tunnel->state = session_proxy_start;
         return;
     } else {
-        pr_err("upstream connection error: %s\n", uv_strerror((int)outgoing->result));
+        const char *fmt = "upstream connection \"%s\" error: %s\n";
+        pr_err(fmt, tunnel->parser.daddr, uv_strerror((int)outgoing->result));
         /* Send a 'Connection refused' reply. */
         socket_write(incoming, "\5\5\0\1\0\0\0\0\0\0", 10);
         tunnel->state = session_kill;

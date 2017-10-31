@@ -24,6 +24,12 @@
 #include <stdint.h>
 #include <stdlib.h>  /* abort() */
 #include <string.h>  /* memset() */
+#if defined(_MSC_VER)
+#include <winsock2.h> /* ntohs */
+#else
+#include <netinet/in.h>  /* ntohs */
+#endif // defined(_MSC_VER)
+
 
 //
 // https://zh.wikipedia.org/zh-hans/SOCKS
@@ -40,6 +46,7 @@ s5_err s5_parse(s5_ctx *cx, uint8_t **data, size_t *size) {
     uint8_t c;
     size_t i;
     size_t n;
+    uint8_t port[2] = { 0 };
 
     p = *data;
     n = *size;
@@ -202,12 +209,13 @@ s5_err s5_parse(s5_ctx *cx, uint8_t **data, size_t *size) {
             break;
 
         case s5_state_req_dport0:
-            cx->dport = c << 8;
+            port[0] = c;
             cx->state = s5_state_req_dport1;
             break;
 
         case s5_state_req_dport1:
-            cx->dport |= c;
+            port[1] = c;
+            cx->dport = (uint16_t) ntohs(*(uint16_t *)port);
             cx->state = s5_state_dead;
             err = s5_exec_cmd;
             goto out;
