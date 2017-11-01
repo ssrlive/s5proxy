@@ -670,7 +670,7 @@ static void socket_connect_done_cb(uv_connect_t *req, int status) {
         return;
     }
 
-    if (status == UV_ECANCELED) {
+    if (status == UV_ECANCELED || status == UV_ECONNREFUSED) {
         do_kill(tunnel);
         return;  /* Handle has been closed. */
     }
