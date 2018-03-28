@@ -28,7 +28,7 @@
 #include <unistd.h>  /* getopt */
 #endif
 
-#define DEFAULT_BIND_HOST     "127.0.0.1"
+#define DEFAULT_BIND_HOST     "0.0.0.0"
 #define DEFAULT_BIND_PORT     1080
 #define DEFAULT_IDLE_TIMEOUT  (60 * 1000)
 

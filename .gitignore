@@ -22,3 +22,13 @@ win32/ssr-client/x64/
 cmake-build-debug
 cmake-build-release
 
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake-libuv/
+src/CMakeFiles/
+src/cmake_install.cmake
+src/s5proxy
+cmake_install.cmake
+src/Makefile
+
