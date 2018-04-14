@@ -57,39 +57,6 @@ struct listener_ctx {
     uv_tcp_t tcp_handle;
 };
 
-enum socket_state {
-    socket_stop,  /* Stopped. */
-    socket_busy,  /* Busy; waiting for incoming data or for a write to complete. */
-    socket_done,  /* Done; read incoming data or write finished. */
-    socket_dead,
-};
-
-struct socket_ctx {
-    enum socket_state rdstate;
-    enum socket_state wrstate;
-    unsigned int idle_timeout;
-    struct tunnel_ctx *tunnel;  /* Backlink to owning tunnel context. */
-    ssize_t result;
-    union {
-        uv_handle_t handle;
-        uv_stream_t stream;
-        uv_tcp_t tcp;
-        uv_udp_t udp;
-    } handle;
-    uv_timer_t timer_handle;  /* For detecting timeouts. */
-    uv_write_t write_req;
-    /* We only need one of these at a time so make them share memory. */
-    union {
-        uv_getaddrinfo_t addrinfo_req;
-        uv_connect_t connect_req;
-        uv_req_t req;
-        struct sockaddr_in6 addr6;
-        struct sockaddr_in addr4;
-        struct sockaddr addr;
-        char buf[2048];  /* Scratch space. Used to read data into. */
-    } t;
-};
-
 /* Session states. */
 enum session_state {
     session_handshake,        /* Wait for client handshake. */
@@ -104,14 +71,7 @@ enum session_state {
     session_dead,             /* Dead. Safe to free now. */
 };
 
-struct tunnel_ctx {
-    enum session_state state;
-    struct listener_ctx *lx;  /* Backlink to owning listener context. */
-    s5_ctx parser;  /* The SOCKS protocol parser. */
-    struct socket_ctx incoming;  /* Connection with the SOCKS client. */
-    struct socket_ctx outgoing;  /* Connection with upstream. */
-    int ref_count;
-};
+struct tunnel_ctx;
 
 /* listener.c */
 int listener_run(struct server_config *cf, uv_loop_t *loop);
@@ -120,17 +80,7 @@ bool can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx)
 bool can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr);
 
 /* tunnel.c */
-void tunnel_initialize(struct listener_ctx *lx);
-
-/* util.c */
-#if defined(__GNUC__)
-# define ATTRIBUTE_FORMAT_PRINTF(a, b) __attribute__((format(printf, a, b)))
-#else
-# define ATTRIBUTE_FORMAT_PRINTF(a, b)
-#endif
-void pr_info(const char *fmt, ...) ATTRIBUTE_FORMAT_PRINTF(1, 2);
-void pr_warn(const char *fmt, ...) ATTRIBUTE_FORMAT_PRINTF(1, 2);
-void pr_err(const char *fmt, ...) ATTRIBUTE_FORMAT_PRINTF(1, 2);
+void s5_tunnel_initialize(struct listener_ctx *lx);
 
 /* main.c */
 const char *_getprogname(void);
