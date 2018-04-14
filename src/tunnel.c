@@ -483,7 +483,7 @@ static void do_req_connect(struct tunnel_ctx *tunnel) {
         char *addr = NULL;
 
         if (parser->atyp == s5_atyp_host) {
-            addr = parser->daddr;
+            addr = (char *)parser->daddr;
         } else if (parser->atyp == s5_atyp_ipv4) {
             addr = inet_ntoa(*(struct in_addr *)parser->daddr);
         } else {
