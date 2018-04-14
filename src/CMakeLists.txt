@@ -9,8 +9,14 @@ set(SOURCE_FILES
         main.c
         s5.c
         s5.h
-        svr_impl.c
-        util.c)
+        tunnel.c
+        tunnel.h
+        sockaddr_universal.c
+        sockaddr_universal.h
+        common.h
+        dump_info.c
+        dump_info.h
+        svr_impl.c)
 
 if ((UNIX) AND (!APPLE))
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
