@@ -9,7 +9,7 @@
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
 
 cmake_minimum_required(VERSION 2.6)
-set(PROJECT_NAME s5proxy-build)
+set(PROJECT_NAME s5proxy)
 set(RELEASE_DATE 2015-09-03)
 project(${PROJECT_NAME})
 
