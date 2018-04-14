@@ -9,7 +9,7 @@ set(SOURCE_FILES
         main.c
         s5.c
         s5.h
-        tunnel.c
+        svr_impl.c
         util.c)
 
 if ((UNIX) AND (!APPLE))

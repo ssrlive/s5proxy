@@ -116,7 +116,7 @@ void tunnel_initialize(struct listener_ctx *lx) {
 
     tunnel_count++;
 
-    tunnel = xmalloc(sizeof(*tunnel));
+    tunnel = calloc(1, sizeof(*tunnel));
 
     tunnel->lx = lx;
     tunnel->state = session_handshake;

@@ -131,7 +131,6 @@ void tunnel_initialize(struct listener_ctx *lx);
 void pr_info(const char *fmt, ...) ATTRIBUTE_FORMAT_PRINTF(1, 2);
 void pr_warn(const char *fmt, ...) ATTRIBUTE_FORMAT_PRINTF(1, 2);
 void pr_err(const char *fmt, ...) ATTRIBUTE_FORMAT_PRINTF(1, 2);
-void *xmalloc(size_t size);
 
 /* main.c */
 const char *_getprogname(void);

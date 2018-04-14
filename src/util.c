@@ -27,19 +27,6 @@
 
 static void pr_do(FILE *stream, const char *label, const char *fmt, va_list ap);
 
-void * xmalloc(size_t size) {
-    void *ptr;
-
-    ptr = malloc(size);
-    if (ptr == NULL) {
-        pr_err("out of memory, need %lu bytes", (unsigned long)size);
-        exit(1);
-    }
-    memset(ptr, 0, size);
-
-    return ptr;
-}
-
 void pr_info(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
