@@ -36,13 +36,11 @@
 static void parse_opts(struct server_config *cf, int argc, char **argv);
 static void usage(void);
 
-static const char *progname = __FILE__;  /* Reset in main(). */
-
 int main(int argc, char **argv) {
     struct server_config *config;
     int err;
 
-    progname = argv[0];
+    set_app_name(argv[0]);
 
     config = (struct server_config *) calloc(1, sizeof(*config));
     config->bind_host = strdup(DEFAULT_BIND_HOST);
@@ -56,14 +54,6 @@ int main(int argc, char **argv) {
     }
 
     return 0;
-}
-
-const char *_getprogname(void) {
-#if defined(_MSC_VER)
-    return strrchr(progname, '\\') + 1;
-#else
-    return strrchr(progname, '/') + 1; // return progname;
-#endif // defined(_MSC_VER)
 }
 
 static void parse_opts(struct server_config *cf, int argc, char **argv) {
@@ -110,6 +100,6 @@ static void usage(void) {
         "  -h                     Show this help message.\n"
         "  -p <port>              Bind to this port number.  Default: 1080\n"
         "",
-        progname);
+        get_app_name());
     exit(1);
 }

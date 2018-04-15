@@ -57,33 +57,16 @@ struct listener_ctx {
     uv_tcp_t tcp_handle;
 };
 
-/* Session states. */
-enum session_state {
-    session_handshake,        /* Wait for client handshake. */
-    session_handshake_auth,   /* Wait for client authentication data. */
-    session_req_start,        /* Start waiting for request data. */
-    session_req_parse,        /* Wait for request data. */
-    session_req_lookup,       /* Wait for upstream hostname DNS lookup to complete. */
-    session_req_connect,      /* Wait for uv_tcp_connect() to complete. */
-    session_proxy_start,      /* Connected. Start piping data. */
-    session_proxy,            /* Connected. Pipe data back and forth. */
-    session_kill,             /* Tear down session. */
-    session_dead,             /* Dead. Safe to free now. */
-};
-
 struct tunnel_ctx;
 
 /* listener.c */
 int listener_run(struct server_config *cf, uv_loop_t *loop);
-bool can_auth_none(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
-bool can_auth_passwd(const struct listener_ctx *lx, const struct tunnel_ctx *cx);
-bool can_access(const struct listener_ctx *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr);
+bool can_auth_none(const uv_tcp_t *lx, const struct tunnel_ctx *cx);
+bool can_auth_passwd(const uv_tcp_t *lx, const struct tunnel_ctx *cx);
+bool can_access(const uv_tcp_t *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr);
 
 /* tunnel.c */
 void s5_tunnel_initialize(struct listener_ctx *lx);
-
-/* main.c */
-const char *_getprogname(void);
 
 /* getopt.c */
 #if !HAVE_UNISTD_H

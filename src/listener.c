@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "dump_info.h"
+#include "sockaddr_universal.h"
 
 #ifndef INET6_ADDRSTRLEN
 # define INET6_ADDRSTRLEN 63
@@ -54,8 +55,8 @@ int listener_run(struct server_config *cf, uv_loop_t *loop) {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    uv_getaddrinfo_t *req = (uv_getaddrinfo_t *)malloc(sizeof(*req));
-    req->data = state;
+    uv_getaddrinfo_t *req = (uv_getaddrinfo_t *)calloc(1, sizeof(*req));
+    loop->data = state;
 
     err = uv_getaddrinfo(loop, req, getaddrinfo_done_cb, cf->bind_host, NULL, &hints);
     if (err != 0) {
@@ -93,15 +94,12 @@ static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrin
     struct listener_ctx *lx;
     unsigned int n;
     int err;
-    union {
-        struct sockaddr addr;
-        struct sockaddr_in addr4;
-        struct sockaddr_in6 addr6;
-    } s;
+
+    union sockaddr_universal s;
 
     loop = req->loop;
 
-    state = (struct server_state *) req->data;
+    state = (struct server_state *) loop->data;
     ASSERT(state);
     cf = state->config;
 
