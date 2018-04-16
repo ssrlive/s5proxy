@@ -193,7 +193,7 @@ void tunnel_traditional_streaming(struct tunnel_ctx *tunnel, struct socket_ctx *
 
     ASSERT((current_socket->wrstate == socket_done && current_socket->rdstate != socket_done) ||
            (current_socket->wrstate != socket_done && current_socket->rdstate == socket_done));
-    ASSERT(target_socket->wrstate != socket_done || target_socket->rdstate != socket_done);
+    ASSERT(target_socket->wrstate != socket_done && target_socket->rdstate != socket_done);
 
     if (current_socket->wrstate == socket_done) {
         current_socket->wrstate = socket_stop;
@@ -204,6 +204,7 @@ void tunnel_traditional_streaming(struct tunnel_ctx *tunnel, struct socket_ctx *
 
     if (current_socket->rdstate == socket_done) {
         current_socket->rdstate = socket_stop;
+        ASSERT(target_socket->wrstate == socket_stop);
         {
             size_t len = 0;
             uint8_t *buf = NULL;
