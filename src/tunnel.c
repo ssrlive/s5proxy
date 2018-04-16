@@ -31,7 +31,6 @@ static bool tunnel_is_in_streaming_wrapper(struct tunnel_ctx *tunnel);
 static bool tunnel_is_dead(struct tunnel_ctx *tunnel);
 static void tunnel_add_ref(struct tunnel_ctx *tunnel);
 static void tunnel_release(struct tunnel_ctx *tunnel);
-static bool socket_cycle(struct socket_ctx *a, struct socket_ctx *b);
 static void socket_timer_expire_cb(uv_timer_t *handle);
 static void socket_timer_start(struct socket_ctx *c);
 static void socket_timer_stop(struct socket_ctx *c);
@@ -179,53 +178,45 @@ void tunnel_process_streaming(struct tunnel_ctx *tunnel, struct socket_ctx *sock
     free(buffer);
 }
 
+//
+// The logic is as follows: read when we don't write and write when we don't read.
+// That gives us back-pressure handling for free because if the peer
+// sends data faster than we consume it, TCP congestion control kicks in.
+//
 void tunnel_traditional_streaming(struct tunnel_ctx *tunnel, struct socket_ctx *socket) {
-    struct socket_ctx *incoming = tunnel->incoming;
-    struct socket_ctx *outgoing = tunnel->outgoing;
+    struct socket_ctx *current_socket = socket;
+    struct socket_ctx *target_socket = NULL;
 
-    ASSERT(socket == incoming || socket == outgoing);
+    ASSERT(current_socket == tunnel->incoming || current_socket == tunnel->outgoing);
 
-    if (socket_cycle(incoming, outgoing) == false) {
-        tunnel_shutdown(tunnel);
-        return;
+    target_socket = ((current_socket == tunnel->incoming) ? tunnel->outgoing : tunnel->incoming);
+
+    ASSERT((current_socket->wrstate == socket_done && current_socket->rdstate != socket_done) ||
+           (current_socket->wrstate != socket_done && current_socket->rdstate == socket_done));
+    ASSERT(target_socket->wrstate != socket_done || target_socket->rdstate != socket_done);
+
+    if (current_socket->wrstate == socket_done) {
+        current_socket->wrstate = socket_stop;
+        if (target_socket->rdstate == socket_stop) {
+            socket_read(target_socket);
+        }
     }
 
-    if (socket_cycle(outgoing, incoming) == false) {
-        tunnel_shutdown(tunnel);
-        return;
-    }
-}
-
-static bool socket_cycle(struct socket_ctx *a, struct socket_ctx *b) {
-    bool result = true;
-    struct tunnel_ctx *tunnel = a->tunnel;
-
-    ASSERT((a->result >= 0) && (b->result >= 0));
-
-    if (a->wrstate == socket_done) {
-        a->wrstate = socket_stop;
-    }
-    // The logic is as follows: read when we don't write and write when we don't read.
-    // That gives us back-pressure handling for free because if the peer
-    // sends data faster than we consume it, TCP congestion control kicks in.
-    if (a->wrstate == socket_stop) {
-        if (b->rdstate == socket_stop) {
-            socket_read(b);
-        } else if (b->rdstate == socket_done) {
+    if (current_socket->rdstate == socket_done) {
+        current_socket->rdstate = socket_stop;
+        {
             size_t len = 0;
             uint8_t *buf = NULL;
             ASSERT(tunnel->tunnel_extract_data);
-            buf = tunnel->tunnel_extract_data(b, &malloc, &len);
+            buf = tunnel->tunnel_extract_data(current_socket, &malloc, &len);
             if (buf /* && size > 0 */) {
-                socket_write(a, buf, len);
-                b->rdstate = socket_stop;  // Triggers the call to socket_read() above.
+                socket_write(target_socket, buf, len);
             } else {
-                result = false;
+                tunnel_shutdown(tunnel);
             }
             free(buf);
         }
     }
-    return result;
 }
 
 static void socket_timer_start(struct socket_ctx *c) {
@@ -437,6 +428,8 @@ static void socket_getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct
 void socket_write(struct socket_ctx *c, const void *data, size_t len) {
     uv_buf_t buf;
     struct tunnel_ctx *tunnel = c->tunnel;
+    char *write_buf = NULL;
+    uv_write_t *req;
 
     if (tunnel_is_in_streaming_wrapper(tunnel) == false) {
         ASSERT(c->wrstate == socket_stop);
@@ -444,10 +437,12 @@ void socket_write(struct socket_ctx *c, const void *data, size_t len) {
     c->wrstate = socket_busy;
 
     // It's okay to cast away constness here, uv_write() won't modify the memory.
-    buf = uv_buf_init((char *)data, (unsigned int)len);
+    write_buf = (char *)calloc(len + 1, sizeof(*write_buf));
+    memcpy(write_buf, data, len);
+    buf = uv_buf_init(write_buf, (unsigned int)len);
 
-    uv_write_t *req = (uv_write_t *)calloc(1, sizeof(uv_write_t));
-    req->data = c;
+    req = (uv_write_t *)calloc(1, sizeof(uv_write_t));
+    req->data = write_buf;
 
     VERIFY(0 == uv_write(req, &c->handle.stream, &buf, 1, socket_write_done_cb));
     socket_timer_start(c);
@@ -456,8 +451,14 @@ void socket_write(struct socket_ctx *c, const void *data, size_t len) {
 static void socket_write_done_cb(uv_write_t *req, int status) {
     struct socket_ctx *c;
     struct tunnel_ctx *tunnel;
+    char *write_buf = NULL;
 
-    c = (struct socket_ctx *)req->data;
+    c = CONTAINER_OF(req->handle, struct socket_ctx, handle.stream);
+
+    ASSERT(req->nbufs == 1);
+    VERIFY((write_buf = (char *)req->data));
+    free(write_buf);
+
     c->result = status;
     free(req);
     tunnel = c->tunnel;

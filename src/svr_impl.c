@@ -43,7 +43,7 @@
  * When the connection with upstream has been established, the struct tunnel_ctx
  * moves into a state where incoming data from the client is sent upstream
  * and vice versa, incoming data from upstream is sent to the client.  In
- * other words, we're just piping data back and forth.  See socket_cycle()
+ * other words, we're just piping data back and forth.  See tunnel_traditional_streaming()
  * for details.
  *
  * An interesting deviation from libuv's I/O model is that reads are discrete
