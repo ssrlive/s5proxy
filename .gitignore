@@ -14,9 +14,9 @@ win32/libuv/Debug/
 win32/libuv/Release/
 win32/libuv/x64/
 
-win32/ssr-client/Debug/
-win32/ssr-client/Release/
-win32/ssr-client/x64/
+win32/s5proxy/Debug/
+win32/s5proxy/Release/
+win32/s5proxy/x64/
 
 .idea
 cmake-build-debug
@@ -32,3 +32,6 @@ src/s5proxy
 cmake_install.cmake
 src/Makefile
 
+*.suo
+*.opensdf
+*.ipch

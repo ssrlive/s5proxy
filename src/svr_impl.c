@@ -477,6 +477,7 @@ static void do_req_connect(struct tunnel_ctx *tunnel) {
     } else {
         s5_ctx *parser = ctx->parser;
         char *addr = NULL;
+        const char *fmt;
 
         if (parser->atyp == s5_atyp_host) {
             addr = (char *)parser->daddr;
@@ -485,7 +486,7 @@ static void do_req_connect(struct tunnel_ctx *tunnel) {
         } else {
             ASSERT(!"not support ipv6 yet."); // inet_ntop()
         }
-        const char *fmt = "upstream connection \"%s\" error: %s\n";
+        fmt = "upstream connection \"%s\" error: %s\n";
         pr_err(fmt, addr, uv_strerror((int)outgoing->result));
         // Send a 'Connection refused' reply.
         socket_write(incoming, "\5\5\0\1\0\0\0\0\0\0", 10);
@@ -523,13 +524,14 @@ static uint8_t* tunnel_extract_data(struct socket_ctx *socket, void*(*allocator)
     struct s5_proxy_ctx *ctx = (struct s5_proxy_ctx *) tunnel->data;
     struct buffer_t *buf = NULL;
     uint8_t *result = NULL;
+    size_t len;
 
     if (socket==NULL || allocator==NULL || size==NULL) {
         return result;
     }
     *size = 0;
 
-    size_t len = (size_t)socket->result;
+    len = (size_t)socket->result;
     *size = len;
     result = (uint8_t *)allocator(len + 1);
     memcpy(result, socket->buf->base, len);

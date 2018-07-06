@@ -1,11 +1,9 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
-MinimumVisualStudioVersion = 10.0.40219.1
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libuv", "libuv\libuv.vcxproj", "{4CA3AB8F-601A-42B4-BB5A-4BCEA06FFD6E}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssr-client", "ssr-client\ssr-client.vcxproj", "{8940FFB7-1159-4E91-9DF7-667D09B32ECA}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "s5proxy", "s5proxy\s5proxy.vcxproj", "{8940FFB7-1159-4E91-9DF7-667D09B32ECA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

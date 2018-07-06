@@ -42,6 +42,7 @@ int listener_run(struct server_config *cf, uv_loop_t *loop) {
     struct addrinfo hints;
     struct server_state *state;
     int err;
+    uv_getaddrinfo_t *req;
 
     state = (struct server_state *) calloc(1, sizeof(*state));
     state->listeners = NULL;
@@ -55,7 +56,7 @@ int listener_run(struct server_config *cf, uv_loop_t *loop) {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    uv_getaddrinfo_t *req = (uv_getaddrinfo_t *)calloc(1, sizeof(*req));
+    req = (uv_getaddrinfo_t *)calloc(1, sizeof(*req));
     loop->data = state;
 
     err = uv_getaddrinfo(loop, req, getaddrinfo_done_cb, cf->bind_host, NULL, &hints);

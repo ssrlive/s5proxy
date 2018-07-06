@@ -96,7 +96,7 @@ static void usage(void) {
         "Options:\n"
         "\n"
         "  -b <hostname|address>  Bind to this address or hostname.\n"
-        "                         Default: \"127.0.0.1\"\n"
+        "                         Default: \"0.0.0.0\"\n"
         "  -h                     Show this help message.\n"
         "  -p <port>              Bind to this port number.  Default: 1080\n"
         "",

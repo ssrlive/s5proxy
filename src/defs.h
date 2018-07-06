@@ -35,16 +35,13 @@ typedef size_t uv_buf_len_t;
 #include <assert.h>
 #include <stddef.h>      /* size_t, ssize_t */
 #include <stdint.h>
+#include <stdbool.h>
 #if defined(_MSC_VER)
 #include <winsock2.h>
 #else
 #include <netinet/in.h>  /* sockaddr_in, sockaddr_in6 */
 #include <sys/socket.h>  /* sockaddr */
 #endif // defined(_MSC_VER)
-
-#if !defined(_MSC_VER)
-#include <stdbool.h>
-#endif
 
 struct server_config {
     char *bind_host;
