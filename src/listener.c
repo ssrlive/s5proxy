@@ -38,11 +38,15 @@ struct server_state {
 static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrinfo *addrs);
 static void listen_incoming_connection_cb(uv_stream_t *server, int status);
 
-int listener_run(struct server_config *cf, uv_loop_t *loop) {
+int listener_run(struct server_config *cf) {
     struct addrinfo hints;
     struct server_state *state;
     int err;
     uv_getaddrinfo_t *req;
+    uv_loop_t *loop = NULL;
+
+    loop = (uv_loop_t *) calloc(1, sizeof(uv_loop_t));
+    uv_loop_init(loop);
 
     state = (struct server_state *) calloc(1, sizeof(*state));
     state->listeners = NULL;
@@ -70,8 +74,7 @@ int listener_run(struct server_config *cf, uv_loop_t *loop) {
         abort();
     }
 
-    /* Please Valgrind. */
-    uv_loop_delete(loop);
+    free(loop);
 
     free(state->config->bind_host);
     free(state->config);
@@ -128,7 +131,7 @@ static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrin
         return;
     }
 
-    state->listeners = calloc((ipv4_naddrs + ipv6_naddrs), sizeof(state->listeners[0]));
+    state->listeners = (struct listener_ctx *) calloc((ipv4_naddrs + ipv6_naddrs), sizeof(state->listeners[0]));
 
     n = 0;
     for (ai = addrs; ai != NULL; ai = ai->ai_next) {

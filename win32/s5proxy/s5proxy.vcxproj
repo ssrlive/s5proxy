@@ -24,6 +24,7 @@
     <None Include="..\..\src\Makefile" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\daemon_wrapper.c" />
     <ClCompile Include="..\..\src\dump_info.c" />
     <ClCompile Include="..\..\src\sockaddr_universal.c" />
     <ClCompile Include="..\..\src\svr_impl.c" />
@@ -35,6 +36,7 @@
     <ClCompile Include="..\src\getopt_long.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src\daemon_wrapper.h" />
     <ClInclude Include="..\..\src\defs.h" />
     <ClInclude Include="..\..\src\dump_info.h" />
     <ClInclude Include="..\..\src\s5.h" />

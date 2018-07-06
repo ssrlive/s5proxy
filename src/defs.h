@@ -47,6 +47,7 @@ struct server_config {
     char *bind_host;
     unsigned short bind_port;
     unsigned int idle_timeout;
+    bool daemon_flag;
 };
 
 struct listener_ctx {
@@ -57,7 +58,7 @@ struct listener_ctx {
 struct tunnel_ctx;
 
 /* listener.c */
-int listener_run(struct server_config *cf, uv_loop_t *loop);
+int listener_run(struct server_config *cf);
 bool can_auth_none(const uv_tcp_t *lx, const struct tunnel_ctx *cx);
 bool can_auth_passwd(const uv_tcp_t *lx, const struct tunnel_ctx *cx);
 bool can_access(const uv_tcp_t *lx, const struct tunnel_ctx *cx, const struct sockaddr *addr);

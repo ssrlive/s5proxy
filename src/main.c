@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "dump_info.h"
+#include "daemon_wrapper.h"
 
 #if HAVE_UNISTD_H
 #include <unistd.h>  /* getopt */
@@ -48,7 +49,14 @@ int main(int argc, char **argv) {
     config->idle_timeout = DEFAULT_IDLE_TIMEOUT;
     parse_opts(config, argc, argv);
 
-    err = listener_run(config, uv_default_loop());
+    if (config->daemon_flag) {
+        char param[257] = { 0 };
+        sprintf(param, "-b \"%s\"  -p %d  -t %d", 
+            config->bind_host, config->bind_port, config->idle_timeout/1000);
+        daemon_wrapper(argv[0], param);
+    }
+
+    err = listener_run(config);
     if (err) {
         exit(1);
     }
@@ -59,7 +67,7 @@ int main(int argc, char **argv) {
 static void parse_opts(struct server_config *cf, int argc, char **argv) {
     int opt;
 
-    while (-1 != (opt = getopt(argc, argv, "b:p:t:h"))) {
+    while (-1 != (opt = getopt(argc, argv, "b:p:t:dh"))) {
         switch (opt) {
         case 'b':
             if (cf->bind_host) {
@@ -67,7 +75,9 @@ static void parse_opts(struct server_config *cf, int argc, char **argv) {
             }
             cf->bind_host = strdup(optarg);
             break;
-
+        case 'd':
+            cf->daemon_flag = true;
+            break;
         case 'p':
             if (1 != sscanf(optarg, "%hu", &cf->bind_port)) {
                 pr_err("bad port number: %s", optarg);
@@ -91,7 +101,7 @@ static void parse_opts(struct server_config *cf, int argc, char **argv) {
 static void usage(void) {
     printf("Usage:\n"
         "\n"
-        "  %s [-b <address>] [-h] [-p <port>]\n"
+        "  %s [-b <address>] [-d] [-h] [-t <timeout>] [-p <port>]\n"
         "\n"
         "Options:\n"
         "\n"
@@ -99,6 +109,8 @@ static void usage(void) {
         "                         Default: \"0.0.0.0\"\n"
         "  -h                     Show this help message.\n"
         "  -p <port>              Bind to this port number.  Default: 1080\n"
+        "  -t <timeout>           Idle timeout.  Default: 60\n"
+        "  -d                     Run in background as a daemon.\n"
         "",
         get_app_name());
     exit(1);
