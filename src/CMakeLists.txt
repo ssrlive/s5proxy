@@ -13,6 +13,8 @@ set(SOURCE_FILES
         tunnel.h
         sockaddr_universal.c
         sockaddr_universal.h
+        daemon_wrapper.c
+        daemon_wrapper.h
         common.h
         dump_info.c
         dump_info.h
