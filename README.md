@@ -7,9 +7,9 @@ A SOCKS5 proxy powered by libuv
 sudo su                       # using root account
 apt-get install --no-install-recommends build-essential autoconf libtool asciidoc xmlto -y
 apt-get install git gcc g++ cmake automake -y
-apt-get -f install
-apt-get update
-apt-get upgrade
+apt-get -f install -y
+apt-get update -y
+apt-get upgrade -y
 
 cd /     # note the space(空格)
 git clone https://github.com/ssrlive/s5proxy.git
