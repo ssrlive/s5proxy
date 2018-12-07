@@ -4,6 +4,7 @@
 *.vcxproj.user
 *.VC.opendb
 *.sdf
+*.cbp
 
 win32/.vs/
 win32/Debug/
