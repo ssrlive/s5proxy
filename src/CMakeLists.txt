@@ -24,6 +24,10 @@ if ((UNIX) AND (!APPLE))
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
 endif()
 
+if ((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Android"))
+    add_definitions(--std=c99 -D_GNU_SOURCE -D_POSIX_C_SOURCE=200112)
+endif()
+
 include_directories(${libuv_include_dirs})
 
 add_executable(s5proxy ${SOURCE_FILES})
