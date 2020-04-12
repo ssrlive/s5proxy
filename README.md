@@ -11,11 +11,11 @@ apt-get -f install -y
 apt-get update -y
 apt-get upgrade -y
 
-cd /     # note the space(空格)
 git clone https://github.com/ssrlive/s5proxy.git
 cd s5proxy
 git submodule update --init
-cmake . && make
+mkdir build && cd build
+cmake .. && make
 ```
 
 # Usage

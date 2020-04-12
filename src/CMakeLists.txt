@@ -33,7 +33,8 @@ include_directories(${libuv_include_dirs})
 add_executable(s5proxy ${SOURCE_FILES})
 
 set (s5_lib_common
-        uv)
+        uv_a)
 
 target_link_libraries(s5proxy
         ${s5_lib_common})
+

@@ -16,8 +16,9 @@ project(${PROJECT_NAME})
 set(VERSION 2.5.6)
 
 
-add_subdirectory(cmake-libuv)
+add_subdirectory(depends/libuv)
 add_subdirectory(src)
 
 
 include_directories( ${CMAKE_CURRENT_BINARY_DIR} )
+
