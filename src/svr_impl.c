@@ -309,14 +309,14 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
         return;
     }
 
-    if (s5_auth_methods(parser) == s5_cmd_tcp_bind) {
+    if (s5_get_cmd(parser) == s5_cmd_tcp_bind) {
         /* Not supported but relatively straightforward to implement. */
         pr_warn("BIND requests are not supported.");
         tunnel_shutdown(tunnel);
         return;
     }
 
-    if (s5_auth_methods(parser) == s5_cmd_udp_assoc) {
+    if (s5_get_cmd(parser) == s5_cmd_udp_assoc) {
         /* Not supported.  Might be hard to implement because libuv has no
         * functionality for detecting the MTU size which the RFC mandates.
         */
@@ -324,7 +324,7 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
         tunnel_shutdown(tunnel);
         return;
     }
-    ASSERT(s5_auth_methods(parser) == s5_cmd_tcp_connect);
+    ASSERT(s5_get_cmd(parser) == s5_cmd_tcp_connect);
 
     if (s5_address_type(parser) == s5_atyp_host) {
         socket_getaddrinfo(outgoing, (const char *)s5_address(parser));

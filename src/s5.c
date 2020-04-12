@@ -323,7 +323,7 @@ const char * str_s5_result(enum s5_result result) {
     return "Unknown error.";
 }
 
-#include <sockaddr_universal.h>
+#include "sockaddr_universal.h"
 uint8_t * build_udp_assoc_package(bool allow, const char *addr_str, int port, void*(*allocator)(size_t size), size_t *size) {
     uint8_t *buf;
     size_t buf_len = 0;
