@@ -1,4 +1,4 @@
-/* Copyright StrongLoop, Inc. All rights reserved.
+/* Copyright ssrlive, Inc. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -21,6 +21,7 @@
 
 #include "s5.h"
 #include <errno.h>
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>  /* abort() */
 #include <string.h>  /* memset() */
@@ -30,23 +31,62 @@
 #include <netinet/in.h>  /* ntohs */
 #endif // defined(_MSC_VER)
 
+enum s5_stage {
+    s5_stage_version,
+    s5_stage_nmethods,
+    s5_stage_methods,
+    s5_stage_auth_pw_version,
+    s5_stage_auth_pw_userlen,
+    s5_stage_auth_pw_username,
+    s5_stage_auth_pw_passlen,
+    s5_stage_auth_pw_password,
+    s5_stage_req_version,
+    s5_stage_req_cmd,
+    s5_stage_req_reserved,
+    s5_stage_req_atyp,
+    s5_stage_req_atyp_host,
+    s5_stage_req_daddr,
+    s5_stage_req_dport0,
+    s5_stage_req_dport1,
+    s5_stage_dead,
+};
+
+struct s5_ctx {
+    uint32_t arg0;  /* Scratch space for the state machine. */
+    uint32_t arg1;  /* Scratch space for the state machine. */
+    enum s5_stage stage;
+    enum s5_auth_method methods;
+    enum s5_cmd cmd;
+    enum s5_atyp atyp;
+    uint8_t userlen;
+    uint8_t passlen;
+    uint16_t dport;
+    uint8_t username[257];
+    uint8_t password[257];
+    uint8_t daddr[257];
+};
 
 //
-// https://zh.wikipedia.org/zh-hans/SOCKS
+// https://zh.wikipedia.org/zh-hans/SOCKS#SOCKS5
 //
 
-void s5_init(s5_ctx *cx) {
-    memset(cx, 0, sizeof(*cx));
-    cx->state = s5_state_version;
+struct s5_ctx * s5_ctx_create(void) {
+    struct s5_ctx *cx = (struct s5_ctx *)calloc(1, sizeof(struct s5_ctx));
+    cx->stage = s5_stage_version;
+    return cx;
 }
 
-s5_err s5_parse(s5_ctx *cx, uint8_t **data, size_t *size) {
-    s5_err err;
+void s5_ctx_release(struct s5_ctx *cx) {
+    free(cx);
+}
+
+enum s5_result s5_parse(struct s5_ctx *cx, uint8_t **data, size_t *size) {
+    enum s5_result result;
     uint8_t *p;
     uint8_t c;
     size_t i;
     size_t n;
-    uint8_t port[2] = { 0 };
+    uint8_t port[2 + 1] = { 0 };
 
     p = *data;
     n = *size;
@@ -55,22 +95,22 @@ s5_err s5_parse(s5_ctx *cx, uint8_t **data, size_t *size) {
     while (i < n) {
         c = p[i];
         i += 1;
-        switch (cx->state) {
-        case s5_state_version:
+        switch (cx->stage) {
+        case s5_stage_version:
             if (c != 5) {
-                err = s5_bad_version;
+                result = s5_result_bad_version;
                 goto out;
             }
-            cx->state = s5_state_nmethods;
+            cx->stage = s5_stage_nmethods;
             break;
 
-        case s5_state_nmethods:
+        case s5_stage_nmethods:
             cx->arg0 = 0;
-            cx->arg1 = c;  /* Number of bytes to read. */
-            cx->state = s5_state_methods;
+            cx->arg1 = (uint32_t)c;  /* Number of bytes to read. */
+            cx->stage = s5_stage_methods;
             break;
 
-        case s5_state_methods:
+        case s5_stage_methods:
             if (cx->arg0 < cx->arg1) {
                 switch (c) {
                 case 0:
@@ -89,64 +129,64 @@ s5_err s5_parse(s5_ctx *cx, uint8_t **data, size_t *size) {
                 cx->arg0 += 1;
             }
             if (cx->arg0 == cx->arg1) {
-                err = s5_auth_select;
+                result = s5_result_auth_select;
                 goto out;
             }
             break;
 
-        case s5_state_auth_pw_version:
+        case s5_stage_auth_pw_version:
             if (c != 1) {
-                err = s5_bad_version;
+                result = s5_result_bad_version;
                 goto out;
             }
-            cx->state = s5_state_auth_pw_userlen;
+            cx->stage = s5_stage_auth_pw_userlen;
             break;
 
-        case s5_state_auth_pw_userlen:
+        case s5_stage_auth_pw_userlen:
             cx->arg0 = 0;
             cx->userlen = c;
-            cx->state = s5_state_auth_pw_username;
+            cx->stage = s5_stage_auth_pw_username;
             break;
 
-        case s5_state_auth_pw_username:
+        case s5_stage_auth_pw_username:
             if (cx->arg0 < cx->userlen) {
                 cx->username[cx->arg0] = c;
                 cx->arg0 += 1;
             }
             if (cx->arg0 == cx->userlen) {
                 cx->username[cx->userlen] = '\0';
-                cx->state = s5_state_auth_pw_passlen;
+                cx->stage = s5_stage_auth_pw_passlen;
             }
             break;
 
-        case s5_state_auth_pw_passlen:
+        case s5_stage_auth_pw_passlen:
             cx->arg0 = 0;
             cx->passlen = c;
-            cx->state = s5_state_auth_pw_password;
+            cx->stage = s5_stage_auth_pw_password;
             break;
 
-        case s5_state_auth_pw_password:
+        case s5_stage_auth_pw_password:
             if (cx->arg0 < cx->passlen) {
                 cx->password[cx->arg0] = c;
                 cx->arg0 += 1;
             }
             if (cx->arg0 == cx->passlen) {
                 cx->password[cx->passlen] = '\0';
-                cx->state = s5_state_req_version;
-                err = s5_auth_verify;
+                cx->stage = s5_stage_req_version;
+                result = s5_result_auth_verify;
                 goto out;
             }
             break;
 
-        case s5_state_req_version:
+        case s5_stage_req_version:
             if (c != 5) {
-                err = s5_bad_version;
+                result = s5_result_bad_version;
                 goto out;
             }
-            cx->state = s5_state_req_cmd;
+            cx->stage = s5_stage_req_cmd;
             break;
 
-        case s5_state_req_cmd:
+        case s5_stage_req_cmd:
             switch (c) {
             case 1:  /* TCP connect */
                 cx->cmd = s5_cmd_tcp_connect;
@@ -158,97 +198,113 @@ s5_err s5_parse(s5_ctx *cx, uint8_t **data, size_t *size) {
                 cx->cmd = s5_cmd_udp_assoc;
                 break;
             default:
-                err = s5_bad_cmd;
+                result = s5_result_bad_cmd;
                 goto out;
             }
-            cx->state = s5_state_req_reserved;
+            cx->stage = s5_stage_req_reserved;
             break;
 
-        case s5_state_req_reserved:
-            cx->state = s5_state_req_atyp;
+        case s5_stage_req_reserved:
+            cx->stage = s5_stage_req_atyp;
             break;
 
-        case s5_state_req_atyp:
+        case s5_stage_req_atyp:
             cx->arg0 = 0;
             switch (c) {
             case 1:  /* IPv4, four octets. */
-                cx->state = s5_state_req_daddr;
+                cx->stage = s5_stage_req_daddr;
                 cx->atyp = s5_atyp_ipv4;
                 cx->arg1 = 4;
                 break;
             case 3:  /* Hostname.  First byte is length. */
-                cx->state = s5_state_req_atyp_host;
+                cx->stage = s5_stage_req_atyp_host;
                 cx->atyp = s5_atyp_host;
                 cx->arg1 = 0;
                 break;
             case 4:  /* IPv6, sixteen octets. */
-                cx->state = s5_state_req_daddr;
+                cx->stage = s5_stage_req_daddr;
                 cx->atyp = s5_atyp_ipv6;
                 cx->arg1 = 16;
                 break;
             default:
-                err = s5_bad_atyp;
+                result = s5_result_bad_atyp;
                 goto out;
             }
             break;
 
-        case s5_state_req_atyp_host:
-            cx->arg1 = c;
-            cx->state = s5_state_req_daddr;
+        case s5_stage_req_atyp_host:
+            cx->arg1 = (uint32_t)c;
+            cx->stage = s5_stage_req_daddr;
             break;
 
-        case s5_state_req_daddr:
+        case s5_stage_req_daddr:
             if (cx->arg0 < cx->arg1) {
                 cx->daddr[cx->arg0] = c;
                 cx->arg0 += 1;
             }
             if (cx->arg0 == cx->arg1) {
                 cx->daddr[cx->arg1] = '\0';
-                cx->state = s5_state_req_dport0;
+                cx->stage = s5_stage_req_dport0;
             }
             break;
 
-        case s5_state_req_dport0:
+        case s5_stage_req_dport0:
             port[0] = c;
-            cx->state = s5_state_req_dport1;
+            cx->stage = s5_stage_req_dport1;
             break;
 
-        case s5_state_req_dport1:
+        case s5_stage_req_dport1:
             port[1] = c;
             cx->dport = (uint16_t) ntohs(*(uint16_t *)port);
-            cx->state = s5_state_dead;
-            err = s5_exec_cmd;
+            cx->stage = s5_stage_dead;
+            result = s5_result_exec_cmd;
             goto out;
 
-        case s5_state_dead:
+        case s5_stage_dead:
             break;
 
         default:
             abort();
         }
     }
-    err = s5_ok;
+    result = s5_result_need_more;
 
 out:
     *data = p + i;
     *size = n - i;
-    return err;
+    return result;
 }
 
-enum s5_auth_method s5_auth_methods(const s5_ctx *cx) {
+enum s5_atyp s5_address_type(const struct s5_ctx *cx) {
+    return cx->atyp;
+}
+
+const char * s5_address(const struct s5_ctx *cx) {
+    return (const char *) cx->daddr;
+}
+
+uint16_t s5_dport(const struct s5_ctx *cx) {
+    return cx->dport;
+}
+
+enum s5_auth_method s5_auth_methods(const struct s5_ctx *cx) {
     return cx->methods;
 }
 
-int s5_select_auth(s5_ctx *cx, s5_auth_method method) {
+enum s5_cmd s5_get_cmd(const struct s5_ctx *cx) {
+    return cx->cmd;
+}
+
+int s5_select_auth(struct s5_ctx *cx, enum s5_auth_method method) {
     int err;
 
     err = 0;
     switch (method) {
     case s5_auth_none:
-        cx->state = s5_state_req_version;
+        cx->stage = s5_stage_req_version;
         break;
     case s5_auth_passwd:
-        cx->state = s5_state_auth_pw_version;
+        cx->stage = s5_stage_auth_pw_version;
         break;
     default:
         err = -EINVAL;
@@ -257,12 +313,130 @@ int s5_select_auth(s5_ctx *cx, s5_auth_method method) {
     return err;
 }
 
-const char *s5_strerror(s5_err err) {
-#define S5_ERR_GEN(_, name, errmsg) case s5_ ## name: return errmsg;
-    switch (err) {
-        S5_ERR_MAP(S5_ERR_GEN)
-    default:;  /* Silence s5_max_errors -Wswitch warning. */
+const char * str_s5_result(enum s5_result result) {
+#define S5_RESULT_GEN(_, name, errmsg) case name: return errmsg;
+    switch (result) {
+        S5_RESULT_MAP(S5_RESULT_GEN)
+    default:;  /* Silence s5_result_max -Wswitch warning. */
     }
-#undef S5_ERR_GEN
+#undef S5_RESULT_GEN
     return "Unknown error.";
+}
+
+#include <sockaddr_universal.h>
+uint8_t * build_udp_assoc_package(bool allow, const char *addr_str, int port, void*(*allocator)(size_t size), size_t *size) {
+    uint8_t *buf;
+    size_t buf_len = 0;
+    union sockaddr_universal addr = { 0 };
+    bool ipV6;
+    size_t in6_addr_w;
+    size_t in4_addr_w;
+    size_t port_w;
+
+    if (addr_str == NULL || allocator == NULL) {
+        return NULL;
+    }
+
+    buf = (uint8_t *) allocator(256);
+    memset(buf, 0, 256);
+
+    if (convert_universal_address(addr_str, port, &addr) != 0) {
+        return NULL;
+    }
+    ipV6 = (addr.addr.sa_family == AF_INET6);
+
+    buf[0] = 5;  // Version.
+    if (allow) {
+        buf[1] = 0;  // Success.
+    } else {
+        buf[1] = 0x07;  // Command not supported.
+    }
+    buf[2] = 0;  // Reserved.
+    buf[3] = (uint8_t)(ipV6 ? 0x04 : 0x01);  // atyp
+
+    in6_addr_w = sizeof(addr.addr6.sin6_addr);
+    in4_addr_w = sizeof(addr.addr4.sin_addr);
+    port_w = sizeof(addr.addr4.sin_port);
+
+    if (ipV6) {
+        buf_len = 4 + in6_addr_w + port_w;
+        memcpy(buf + 4, &addr.addr6.sin6_addr, in6_addr_w);
+        memcpy(buf + 4 + in6_addr_w, &addr.addr6.sin6_port, port_w);
+    } else {
+        buf_len = 4 + in4_addr_w + port_w;
+        memcpy(buf + 4, &addr.addr4.sin_addr, in4_addr_w);
+        memcpy(buf + 4 + in4_addr_w, &addr.addr4.sin_port, port_w);
+    }
+    if (size) {
+        *size = buf_len;
+    }
+    return buf;
+}
+
+uint8_t * s5_address_package_create(const struct s5_ctx *parser, void*(*allocator)(size_t size), size_t *size) {
+    uint8_t *buffer, *iter;
+    uint8_t len;
+
+    assert(parser);
+    assert(allocator);
+
+    buffer = (uint8_t *) allocator(0x100);
+    memset(buffer, 0, 0x100);
+    iter = buffer;
+
+    iter[0] = (uint8_t)parser->atyp;
+    iter++;
+
+    switch (parser->atyp) {
+    case s5_atyp_ipv4:  // IPv4
+        memcpy(iter, parser->daddr, sizeof(struct in_addr));
+        iter += sizeof(struct in_addr);
+        break;
+    case s5_atyp_ipv6:  // IPv6
+        memcpy(iter, parser->daddr, sizeof(struct in6_addr));
+        iter += sizeof(struct in6_addr);
+        break;
+    case s5_atyp_host:
+        len = (uint8_t)strlen((char *)parser->daddr);
+        iter[0] = len;
+        iter++;
+        memcpy(iter, parser->daddr, len);
+        iter += len;
+        break;
+    default:
+        assert(0);
+        break;
+    }
+    *((unsigned short *)iter) = htons(parser->dport);
+    iter += sizeof(unsigned short);
+
+    if (size) {
+        *size = iter - buffer;
+    }
+
+    return buffer;
+}
+
+uint8_t * s5_connect_response_package(const struct s5_ctx *parser, void*(*allocator)(size_t size), size_t *size) {
+    uint8_t *buf, *addr_pkg;
+    size_t addr_size = 0;
+    assert(parser);
+    assert(allocator);
+    addr_pkg = s5_address_package_create(parser, &malloc, &addr_size);
+    buf = (uint8_t *)allocator(3 + addr_size + 1);
+    memset(buf, 0, 3 + addr_size + 1);
+    buf[0] = 5;  // Version.
+    buf[1] = 0;  // Success.
+    buf[2] = 0;  // Reserved.
+#if 0
+    memcpy(buf + 3, addr_pkg, addr_size);
+#else
+    assert(addr_size >= 7);
+    buf[3] = 1;  addr_size = 7; /* to fit a Privoxy bug. sadly */
+#endif
+    free(addr_pkg);
+    if (size) {
+        *size = addr_size + 3;
+    }
+    return buf;
 }

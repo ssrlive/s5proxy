@@ -73,7 +73,7 @@ enum session_state {
 };
 
 struct s5_proxy_ctx {
-    s5_ctx *parser;  /* The SOCKS protocol parser. */
+    struct s5_ctx *parser;  /* The SOCKS protocol parser. */
     enum session_state state;
 };
 
@@ -114,8 +114,7 @@ static bool _init_done_cb(struct tunnel_ctx *tunnel, void *p) {
     tunnel->tunnel_is_in_streaming = &tunnel_is_in_streaming;
     tunnel->tunnel_extract_data = &tunnel_extract_data;
 
-    ctx->parser = (s5_ctx *)calloc(1, sizeof(s5_ctx));
-    s5_init(ctx->parser);
+    ctx->parser = s5_ctx_create();
     ctx->state = session_handshake;
 
     tunnel_count++;
@@ -179,10 +178,10 @@ static void do_handshake(struct tunnel_ctx *tunnel, struct socket_ctx *socket) {
     struct s5_proxy_ctx *ctx = (struct s5_proxy_ctx *) tunnel->data;
     enum s5_auth_method methods;
     struct socket_ctx *incoming;
-    s5_ctx *parser;
+    struct s5_ctx *parser;
     uint8_t *data;
     size_t size;
-    enum s5_err err;
+    enum s5_result err;
 
     parser = ctx->parser;
     incoming = tunnel->incoming;
@@ -199,7 +198,7 @@ static void do_handshake(struct tunnel_ctx *tunnel, struct socket_ctx *socket) {
     data = (uint8_t *)incoming->buf->base;
     size = (size_t)incoming->result;
     err = s5_parse(parser, &data, &size);
-    if (err == s5_ok) {
+    if (err == s5_result_need_more) {
         socket_read(incoming);
         ctx->state = session_handshake;  /* Need more data. */
         return;
@@ -215,8 +214,8 @@ static void do_handshake(struct tunnel_ctx *tunnel, struct socket_ctx *socket) {
         return;
     }
 
-    if (err != s5_auth_select) {
-        pr_err("handshake error: %s", s5_strerror(err));
+    if (err != s5_result_auth_select) {
+        pr_err("handshake error: %s", str_s5_result(err));
         tunnel_shutdown(tunnel);
         return;
     }
@@ -268,10 +267,10 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
     struct s5_proxy_ctx *ctx = (struct s5_proxy_ctx *) tunnel->data;
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
-    s5_ctx *parser;
+    struct s5_ctx *parser;
     uint8_t *data;
     size_t size;
-    enum s5_err err;
+    enum s5_result err;
 
     parser = ctx->parser;
     incoming = tunnel->incoming;
@@ -292,7 +291,7 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
     data = (uint8_t *)incoming->buf->base;
     size = (size_t)incoming->result;
     err = s5_parse(parser, &data, &size);
-    if (err == s5_ok) {
+    if (err == s5_result_need_more) {
         socket_read(incoming);
         ctx->state = session_req_parse;  /* Need more data. */
         return;
@@ -304,20 +303,20 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
         return;
     }
 
-    if (err != s5_exec_cmd) {
-        pr_err("request error: %s", s5_strerror(err));
+    if (err != s5_result_exec_cmd) {
+        pr_err("request error: %s", str_s5_result(err));
         tunnel_shutdown(tunnel);
         return;
     }
 
-    if (parser->cmd == s5_cmd_tcp_bind) {
+    if (s5_auth_methods(parser) == s5_cmd_tcp_bind) {
         /* Not supported but relatively straightforward to implement. */
         pr_warn("BIND requests are not supported.");
         tunnel_shutdown(tunnel);
         return;
     }
 
-    if (parser->cmd == s5_cmd_udp_assoc) {
+    if (s5_auth_methods(parser) == s5_cmd_udp_assoc) {
         /* Not supported.  Might be hard to implement because libuv has no
         * functionality for detecting the MTU size which the RFC mandates.
         */
@@ -325,27 +324,27 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
         tunnel_shutdown(tunnel);
         return;
     }
-    ASSERT(parser->cmd == s5_cmd_tcp_connect);
+    ASSERT(s5_auth_methods(parser) == s5_cmd_tcp_connect);
 
-    if (parser->atyp == s5_atyp_host) {
-        socket_getaddrinfo(outgoing, (const char *)parser->daddr);
+    if (s5_address_type(parser) == s5_atyp_host) {
+        socket_getaddrinfo(outgoing, (const char *)s5_address(parser));
         ctx->state = session_req_lookup;
         return;
     }
 
-    if (parser->atyp == s5_atyp_ipv4) {
+    if (s5_address_type(parser) == s5_atyp_ipv4) {
         memset(&outgoing->addr.addr4, 0, sizeof(outgoing->addr.addr4));
         outgoing->addr.addr4.sin_family = AF_INET;
-        outgoing->addr.addr4.sin_port = htons(parser->dport);
+        outgoing->addr.addr4.sin_port = htons(s5_dport(parser));
         memcpy(&outgoing->addr.addr4.sin_addr,
-            parser->daddr,
+            s5_address(parser),
             sizeof(outgoing->addr.addr4.sin_addr));
-    } else if (parser->atyp == s5_atyp_ipv6) {
+    } else if (s5_address_type(parser) == s5_atyp_ipv6) {
         memset(&outgoing->addr.addr6, 0, sizeof(outgoing->addr.addr6));
         outgoing->addr.addr6.sin6_family = AF_INET6;
-        outgoing->addr.addr6.sin6_port = htons(parser->dport);
+        outgoing->addr.addr6.sin6_port = htons(s5_dport(parser));
         memcpy(&outgoing->addr.addr6.sin6_addr,
-            parser->daddr,
+            s5_address(parser),
             sizeof(outgoing->addr.addr6.sin6_addr));
     } else {
         UNREACHABLE();
@@ -356,7 +355,7 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
 
 static void do_req_lookup(struct tunnel_ctx *tunnel) {
     struct s5_proxy_ctx *ctx = (struct s5_proxy_ctx *) tunnel->data;
-    s5_ctx *parser;
+    struct s5_ctx *parser;
     struct socket_ctx *incoming;
     struct socket_ctx *outgoing;
 
@@ -371,7 +370,7 @@ static void do_req_lookup(struct tunnel_ctx *tunnel) {
     if (outgoing->result < 0) {
         /* TODO(bnoordhuis) Escape control characters in parser->daddr. */
         pr_err("lookup error for \"%s\": %s",
-            parser->daddr,
+            s5_address(parser),
             uv_strerror((int)outgoing->result));
         /* Send back a 'Host unreachable' reply. */
         socket_write(incoming, "\5\4\0\1\0\0\0\0\0\0", 10);
@@ -382,10 +381,10 @@ static void do_req_lookup(struct tunnel_ctx *tunnel) {
     /* Don't make assumptions about the offset of sin_port/sin6_port. */
     switch (outgoing->addr.addr.sa_family) {
     case AF_INET:
-        outgoing->addr.addr4.sin_port = htons(parser->dport);
+        outgoing->addr.addr4.sin_port = htons(s5_dport(parser));
         break;
     case AF_INET6:
-        outgoing->addr.addr6.sin6_port = htons(parser->dport);
+        outgoing->addr.addr6.sin6_port = htons(s5_dport(parser));
         break;
     default:
         UNREACHABLE();
@@ -475,14 +474,14 @@ static void do_req_connect(struct tunnel_ctx *tunnel) {
         ctx->state = session_proxy_start;
         return;
     } else {
-        s5_ctx *parser = ctx->parser;
+        struct s5_ctx *parser = ctx->parser;
         char *addr = NULL;
         const char *fmt;
 
-        if (parser->atyp == s5_atyp_host) {
-            addr = (char *)parser->daddr;
-        } else if (parser->atyp == s5_atyp_ipv4) {
-            addr = inet_ntoa(*(struct in_addr *)parser->daddr);
+        if (s5_address_type(parser) == s5_atyp_host) {
+            addr = (char *)s5_address(parser);
+        } else if (s5_address_type(parser) == s5_atyp_ipv4) {
+            addr = inet_ntoa(*((struct in_addr *)s5_address(parser)));
         } else {
             ASSERT(!"not support ipv6 yet."); // inet_ntop()
         }
@@ -541,7 +540,7 @@ static uint8_t* tunnel_extract_data(struct socket_ctx *socket, void*(*allocator)
 
 static void tunnel_dying(struct tunnel_ctx *tunnel) {
     struct s5_proxy_ctx *ctx = (struct s5_proxy_ctx *) tunnel->data;
-    free(ctx->parser);
+    s5_ctx_release(ctx->parser);
     free(ctx);
 }
 

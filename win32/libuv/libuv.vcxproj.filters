@@ -75,9 +75,6 @@
     <ClCompile Include="..\..\depends\libuv\src\win\process.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\depends\libuv\src\win\req.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\depends\libuv\src\win\signal.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -93,9 +90,6 @@
     <ClCompile Include="..\..\depends\libuv\src\win\thread.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\depends\libuv\src\win\timer.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\depends\libuv\src\win\tty.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -109,6 +103,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\depends\libuv\src\win\winsock.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\depends\libuv\src\timer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\depends\libuv\src\strscpy.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\depends\libuv\src\idna.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

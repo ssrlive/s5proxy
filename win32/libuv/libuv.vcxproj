@@ -20,8 +20,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\depends\libuv\src\fs-poll.c" />
+    <ClCompile Include="..\..\depends\libuv\src\idna.c" />
     <ClCompile Include="..\..\depends\libuv\src\inet.c" />
+    <ClCompile Include="..\..\depends\libuv\src\strscpy.c" />
     <ClCompile Include="..\..\depends\libuv\src\threadpool.c" />
+    <ClCompile Include="..\..\depends\libuv\src\timer.c" />
     <ClCompile Include="..\..\depends\libuv\src\uv-common.c" />
     <ClCompile Include="..\..\depends\libuv\src\version.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\async.c" />
@@ -39,13 +42,11 @@
     <ClCompile Include="..\..\depends\libuv\src\win\poll.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\process-stdio.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\process.c" />
-    <ClCompile Include="..\..\depends\libuv\src\win\req.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\signal.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\snprintf.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\stream.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\tcp.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\thread.c" />
-    <ClCompile Include="..\..\depends\libuv\src\win\timer.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\tty.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\udp.c" />
     <ClCompile Include="..\..\depends\libuv\src\win\util.c" />
