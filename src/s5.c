@@ -275,19 +275,19 @@ out:
     return result;
 }
 
-enum s5_atyp s5_address_type(const struct s5_ctx *cx) {
+enum s5_atyp s5_get_address_type(const struct s5_ctx *cx) {
     return cx->atyp;
 }
 
-const char * s5_address(const struct s5_ctx *cx) {
+const char * s5_get_address(const struct s5_ctx *cx) {
     return (const char *) cx->daddr;
 }
 
-uint16_t s5_dport(const struct s5_ctx *cx) {
+uint16_t s5_get_dport(const struct s5_ctx *cx) {
     return cx->dport;
 }
 
-enum s5_auth_method s5_auth_methods(const struct s5_ctx *cx) {
+enum s5_auth_method s5_get_auth_methods(const struct s5_ctx *cx) {
     return cx->methods;
 }
 

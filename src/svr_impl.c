@@ -220,7 +220,7 @@ static void do_handshake(struct tunnel_ctx *tunnel, struct socket_ctx *socket) {
         return;
     }
 
-    methods = s5_auth_methods(parser);
+    methods = s5_get_auth_methods(parser);
     if ((methods & s5_auth_none) && can_auth_none(&incoming->handle.tcp, tunnel)) {
         s5_select_auth(parser, s5_auth_none);
         socket_write(incoming, "\5\0", 2);  /* No auth required. */
@@ -326,25 +326,25 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
     }
     ASSERT(s5_get_cmd(parser) == s5_cmd_tcp_connect);
 
-    if (s5_address_type(parser) == s5_atyp_host) {
-        socket_getaddrinfo(outgoing, (const char *)s5_address(parser));
+    if (s5_get_address_type(parser) == s5_atyp_host) {
+        socket_getaddrinfo(outgoing, (const char *)s5_get_address(parser));
         ctx->state = session_req_lookup;
         return;
     }
 
-    if (s5_address_type(parser) == s5_atyp_ipv4) {
+    if (s5_get_address_type(parser) == s5_atyp_ipv4) {
         memset(&outgoing->addr.addr4, 0, sizeof(outgoing->addr.addr4));
         outgoing->addr.addr4.sin_family = AF_INET;
-        outgoing->addr.addr4.sin_port = htons(s5_dport(parser));
+        outgoing->addr.addr4.sin_port = htons(s5_get_dport(parser));
         memcpy(&outgoing->addr.addr4.sin_addr,
-            s5_address(parser),
+            s5_get_address(parser),
             sizeof(outgoing->addr.addr4.sin_addr));
-    } else if (s5_address_type(parser) == s5_atyp_ipv6) {
+    } else if (s5_get_address_type(parser) == s5_atyp_ipv6) {
         memset(&outgoing->addr.addr6, 0, sizeof(outgoing->addr.addr6));
         outgoing->addr.addr6.sin6_family = AF_INET6;
-        outgoing->addr.addr6.sin6_port = htons(s5_dport(parser));
+        outgoing->addr.addr6.sin6_port = htons(s5_get_dport(parser));
         memcpy(&outgoing->addr.addr6.sin6_addr,
-            s5_address(parser),
+            s5_get_address(parser),
             sizeof(outgoing->addr.addr6.sin6_addr));
     } else {
         UNREACHABLE();
@@ -370,7 +370,7 @@ static void do_req_lookup(struct tunnel_ctx *tunnel) {
     if (outgoing->result < 0) {
         /* TODO(bnoordhuis) Escape control characters in parser->daddr. */
         pr_err("lookup error for \"%s\": %s",
-            s5_address(parser),
+            s5_get_address(parser),
             uv_strerror((int)outgoing->result));
         /* Send back a 'Host unreachable' reply. */
         socket_write(incoming, "\5\4\0\1\0\0\0\0\0\0", 10);
@@ -381,10 +381,10 @@ static void do_req_lookup(struct tunnel_ctx *tunnel) {
     /* Don't make assumptions about the offset of sin_port/sin6_port. */
     switch (outgoing->addr.addr.sa_family) {
     case AF_INET:
-        outgoing->addr.addr4.sin_port = htons(s5_dport(parser));
+        outgoing->addr.addr4.sin_port = htons(s5_get_dport(parser));
         break;
     case AF_INET6:
-        outgoing->addr.addr6.sin6_port = htons(s5_dport(parser));
+        outgoing->addr.addr6.sin6_port = htons(s5_get_dport(parser));
         break;
     default:
         UNREACHABLE();
@@ -478,10 +478,10 @@ static void do_req_connect(struct tunnel_ctx *tunnel) {
         char *addr = NULL;
         const char *fmt;
 
-        if (s5_address_type(parser) == s5_atyp_host) {
-            addr = (char *)s5_address(parser);
-        } else if (s5_address_type(parser) == s5_atyp_ipv4) {
-            addr = inet_ntoa(*((struct in_addr *)s5_address(parser)));
+        if (s5_get_address_type(parser) == s5_atyp_host) {
+            addr = (char *)s5_get_address(parser);
+        } else if (s5_get_address_type(parser) == s5_atyp_ipv4) {
+            addr = inet_ntoa(*((struct in_addr *)s5_get_address(parser)));
         } else {
             ASSERT(!"not support ipv6 yet."); // inet_ntop()
         }

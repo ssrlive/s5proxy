@@ -67,12 +67,12 @@ void s5_ctx_release(struct s5_ctx *cx);
 
 enum s5_result s5_parse(struct s5_ctx *cx, uint8_t **data, size_t *size);
 
-enum s5_atyp s5_address_type(const struct s5_ctx *cx);
-const char * s5_address(const struct s5_ctx *cx);
-uint16_t s5_dport(const struct s5_ctx *cx);
+enum s5_atyp s5_get_address_type(const struct s5_ctx *cx);
+const char * s5_get_address(const struct s5_ctx *cx);
+uint16_t s5_get_dport(const struct s5_ctx *cx);
 
 /* Only call after s5_parse() has returned s5_want_auth_method. */
-enum s5_auth_method s5_auth_methods(const struct s5_ctx *cx);
+enum s5_auth_method s5_get_auth_methods(const struct s5_ctx *cx);
 
 enum s5_cmd s5_get_cmd(const struct s5_ctx *cx);
 
