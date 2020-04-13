@@ -73,22 +73,22 @@ extern char *optarg;
 int getopt(int argc, char * const argv[], const char *options);
 #endif
 
-/* ASSERT() is for debug checks, CHECK() for run-time sanity checks.
+/* ASSERT() is for debug checks, VERIFY() for run-time sanity checks.
 * DEBUG_CHECKS is for expensive debug checks that we only want to
 * enable in debug builds but still want type-checked by the compiler
 * in release builds.
 */
 #if defined(NDEBUG)
 # define ASSERT(exp)
-# define CHECK(exp)   do { if (!(exp)) abort(); } while (0)
+# define VERIFY(exp)   do { if (!(exp)) abort(); } while (0)
 # define DEBUG_CHECKS (0)
 #else
 # define ASSERT(exp)  assert(exp)
-# define CHECK(exp)   assert(exp)
+# define VERIFY(exp)   assert(exp)
 # define DEBUG_CHECKS (1)
 #endif
 
-#define UNREACHABLE() CHECK(!"Unreachable code reached.")
+#define UNREACHABLE() VERIFY(!"Unreachable code reached.")
 
 /* This macro looks complicated but it's not: it calculates the address
 * of the embedding struct through the address of the embedded struct.

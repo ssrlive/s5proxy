@@ -25,6 +25,7 @@
 #include <string.h>
 #include "tunnel.h"
 #include "dump_info.h"
+#include "sockaddr_universal.h"
 
 /* A connection is modeled as an abstraction on top of two simple state
  * machines, one for reading and one for writing.  Either state machine
@@ -66,6 +67,7 @@ enum session_state {
     session_req_parse,        /* Wait for request data. */
     session_req_lookup,       /* Wait for upstream hostname DNS lookup to complete. */
     session_req_connect,      /* Wait for uv_tcp_connect() to complete. */
+    session_udp_accoc,
     session_proxy_start,      /* Connected. Start piping data. */
     session_streaming,            /* Connected. Pipe data back and forth. */
     session_kill,             /* Tear down session. */
@@ -157,6 +159,11 @@ static void do_next(struct tunnel_ctx *tunnel, struct socket_ctx *socket) {
         break;
     case session_req_connect:
         do_req_connect(tunnel);
+        break;
+    case session_udp_accoc:
+        ASSERT(incoming->wrstate == socket_done);
+        incoming->wrstate = socket_stop;
+        tunnel_shutdown(tunnel);
         break;
     case session_proxy_start:
         ASSERT(incoming->wrstate == socket_done);
@@ -317,13 +324,27 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
     }
 
     if (s5_get_cmd(parser) == s5_cmd_udp_assoc) {
-        /* Not supported.  Might be hard to implement because libuv has no
-        * functionality for detecting the MTU size which the RFC mandates.
-        */
-        pr_warn("UDP ASSOC requests are not supported.");
-        tunnel_shutdown(tunnel);
+        // UDP ASSOCIATE requests
+        size_t len = 0;
+        uint8_t *buf;
+
+        union sockaddr_universal sockname;
+        int namelen = sizeof(sockname);
+        char addr[256] = { 0 };
+        uint16_t port = 0;
+
+        VERIFY(0 == uv_tcp_getsockname(&incoming->handle.tcp, (struct sockaddr *)&sockname, &namelen));
+
+        universal_address_to_string(&sockname, addr, sizeof(addr));
+        port = universal_address_get_port(&sockname);
+
+        buf = build_udp_assoc_package(true, addr, port, &malloc, &len);
+        socket_write(incoming, buf, len);
+        free(buf);
+        ctx->state = session_udp_accoc;
         return;
     }
+
     ASSERT(s5_get_cmd(parser) == s5_cmd_tcp_connect);
 
     if (s5_get_address_type(parser) == s5_atyp_host) {
@@ -450,7 +471,7 @@ static void do_req_connect(struct tunnel_ctx *tunnel) {
         * and address in the reply.  So that's what we do.
         */
         addrlen = sizeof(addr_storage);
-        CHECK(0 == uv_tcp_getsockname(&outgoing->handle.tcp,
+        VERIFY(0 == uv_tcp_getsockname(&outgoing->handle.tcp,
             (struct sockaddr *) addr_storage,
             &addrlen));
         buf[0] = 5;  /* Version. */

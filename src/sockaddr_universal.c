@@ -82,7 +82,7 @@ char * socks5_address_to_string(const struct socks5_address *addr, char *buffer,
         break;
     case SOCKS5_ADDRTYPE_DOMAINNAME:
         addr_ptr = addr->addr.domainname;
-        if (size < strlen(addr_ptr)) {
+        if (size < (strlen(addr_ptr) + 1)) {
             return NULL;
         }
         strcpy(buffer, addr_ptr);
@@ -231,4 +231,11 @@ char * universal_address_to_string(const union sockaddr_universal *addr, char *a
         break;
     }
     return addr_str;
+}
+
+uint16_t universal_address_get_port(const union sockaddr_universal *addr) {
+    if (addr) {
+        return ntohs(addr->addr4.sin_port);
+    }
+    return 0;
 }

@@ -157,7 +157,7 @@ static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrin
 
         lx = state->listeners + n;
         lx->idle_timeout = state->config->idle_timeout;
-        CHECK(0 == uv_tcp_init(loop, &lx->tcp_handle));
+        VERIFY(0 == uv_tcp_init(loop, &lx->tcp_handle));
 
         what = "uv_tcp_bind";
         err = uv_tcp_bind(&lx->tcp_handle, &s.addr, 0);
@@ -185,7 +185,7 @@ static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrin
 static void listen_incoming_connection_cb(uv_stream_t *server, int status) {
     struct listener_ctx *lx;
 
-    CHECK(status == 0);
+    VERIFY(status == 0);
     lx = CONTAINER_OF(server, struct listener_ctx, tcp_handle);
 
     s5_tunnel_initialize(lx);
