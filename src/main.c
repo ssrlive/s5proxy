@@ -34,7 +34,7 @@
 #define DEFAULT_BIND_PORT     1080
 #define DEFAULT_IDLE_TIMEOUT  (60 * 1000)
 
-static void parse_opts(struct server_config *cf, int argc, char **argv);
+static void parse_opts(struct server_config *cf, int argc, char * const argv[]);
 static void usage(void);
 
 int main(int argc, char **argv) {
@@ -48,6 +48,11 @@ int main(int argc, char **argv) {
     config->bind_port = DEFAULT_BIND_PORT;
     config->idle_timeout = DEFAULT_IDLE_TIMEOUT;
     parse_opts(config, argc, argv);
+    if (config->fatal_error) {
+        usage();
+        free(config);
+        return -1;
+    }
 
     if (config->daemon_flag) {
         char param[257] = { 0 };
@@ -58,13 +63,13 @@ int main(int argc, char **argv) {
 
     err = listener_run(config);
     if (err) {
-        exit(1);
+        return (1);
     }
 
     return 0;
 }
 
-static void parse_opts(struct server_config *cf, int argc, char **argv) {
+static void parse_opts(struct server_config *cf, int argc, char * const argv[]) {
     int opt;
 
     while (-1 != (opt = getopt(argc, argv, "b:p:t:dh"))) {
@@ -81,19 +86,22 @@ static void parse_opts(struct server_config *cf, int argc, char **argv) {
         case 'p':
             if (1 != sscanf(optarg, "%hu", &cf->bind_port)) {
                 pr_err("bad port number: %s", optarg);
-                usage();
+                cf->fatal_error = true;
+                return;
             }
             break;
         case 't':
             if (1 != sscanf(optarg, "%ud", &cf->idle_timeout)) {
                 pr_err("bad idle timeout: %s", optarg);
-                usage();
+                cf->fatal_error = true;
+                return;
             }
             cf->idle_timeout *= 1000;
             break;
         case 'h':
         default:
-            usage();
+            cf->fatal_error = true;
+            return;
         }
     }
 }
@@ -113,5 +121,4 @@ static void usage(void) {
         "  -d                     Run in background as a daemon.\n"
         "",
         get_app_name());
-    exit(1);
 }

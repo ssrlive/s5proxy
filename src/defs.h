@@ -48,6 +48,7 @@ struct server_config {
     unsigned short bind_port;
     unsigned int idle_timeout;
     bool daemon_flag;
+    bool fatal_error;
 };
 
 struct listener_ctx {
