@@ -35,8 +35,10 @@
 
 #if defined(NDEBUG)
 #define DEFAULT_IDLE_TIMEOUT  (10 * 1000)
+#define DEFAULT_IDLE_TIMEOUT_STR  "10"
 #else
 #define DEFAULT_IDLE_TIMEOUT  (60 * 1000)
+#define DEFAULT_IDLE_TIMEOUT_STR  "60"
 #endif
 
 static void parse_opts(struct server_config *cf, int argc, char * const argv[]);
@@ -122,7 +124,7 @@ static void usage(void) {
         "                         Default: \"0.0.0.0\"\n"
         "  -h                     Show this help message.\n"
         "  -p <port>              Bind to this port number.  Default: 1080\n"
-        "  -t <timeout>           Idle timeout.  Default: 60\n"
+        "  -t <timeout>           Idle timeout.  Default: " DEFAULT_IDLE_TIMEOUT_STR " seconds\n"
         "  -d                     Run in background as a daemon.\n"
         "",
         get_app_name());
