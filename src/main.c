@@ -32,7 +32,12 @@
 
 #define DEFAULT_BIND_HOST     "0.0.0.0"
 #define DEFAULT_BIND_PORT     1080
+
+#if defined(NDEBUG)
+#define DEFAULT_IDLE_TIMEOUT  (10 * 1000)
+#else
 #define DEFAULT_IDLE_TIMEOUT  (60 * 1000)
+#endif
 
 static void parse_opts(struct server_config *cf, int argc, char * const argv[]);
 static void usage(void);

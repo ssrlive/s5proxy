@@ -68,7 +68,7 @@
 #endif
 
 #define MAX_UDP_PACKET_SIZE (65507)
-#define MIN_UDP_TIMEOUT 10
+#define MIN_UDP_TIMEOUT (10 * 1000) // In milliseconds.
 
 #define MODULE_LOCAL 1
 
@@ -80,7 +80,7 @@
 
 struct udp_listener_ctx_t {
     uv_udp_t udp;
-    int timeout;
+    uint64_t timeout;  // In milliseconds.
     struct cstl_set *connections;
 
     size_t packet_size;
@@ -90,8 +90,8 @@ struct udp_listener_ctx_t {
 };
 
 struct udp_remote_ctx_t {
-    uv_udp_t udp;
-    uv_timer_t watcher;
+    uv_udp_t rmt_udp;
+    uv_timer_t rmt_expire;
     int addr_header_len;
     char addr_header[384];
     struct socks5_address src_addr;
@@ -198,6 +198,41 @@ void upd_remote_sent_cb(uv_udp_send_t* req, int status) {
     free(req);
 }
 
+static void udp_remote_close_done_cb(uv_handle_t* handle) {
+    struct udp_remote_ctx_t *ctx = (struct udp_remote_ctx_t *)handle->data;
+    --ctx->ref_count;
+    if (ctx->ref_count <= 0) {
+        free(ctx);
+    }
+}
+
+static void udp_remote_shutdown(struct udp_remote_ctx_t *ctx) {
+    if (ctx == NULL) {
+        return;
+    }
+    //cstl_set_container_remove(ctx->server_ctx->connections, ctx);
+    {
+        uv_timer_t *timer = &ctx->rmt_expire;
+        uv_timer_stop(timer);
+        uv_close((uv_handle_t *)timer, udp_remote_close_done_cb);
+        ++ctx->ref_count;
+    }
+    {
+        uv_udp_t *udp = &ctx->rmt_udp;
+        uv_udp_recv_stop(udp);
+        uv_close((uv_handle_t *)udp, udp_remote_close_done_cb);
+        ++ctx->ref_count;
+    }
+}
+
+static void udp_remote_timeout_cb(uv_timer_t* handle) {
+    struct udp_remote_ctx_t *rmt_ctx = CONTAINER_OF(handle, struct udp_remote_ctx_t, rmt_expire);
+
+    pr_info("[udp] connection timeout, shutting down");
+
+    udp_remote_shutdown(rmt_ctx);
+}
+
 void udp_remote_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf0, const struct sockaddr* addr, unsigned flags) {
     char buf[250] = { 0 };
     union sockaddr_universal remote_addr = { 0 };
@@ -208,10 +243,14 @@ void udp_remote_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf0, c
     uv_buf_t sndbuf;
     struct udp_remote_ctx_t *rmt_ctx;
 
-    rmt_ctx = CONTAINER_OF(handle, struct udp_remote_ctx_t, udp);
+    rmt_ctx = CONTAINER_OF(handle, struct udp_remote_ctx_t, rmt_udp);
     ASSERT(rmt_ctx);
     ASSERT(rmt_ctx == handle->data);
-
+    {
+        uv_timer_t *timer = &rmt_ctx->rmt_expire;
+        uv_timer_stop(timer);
+        uv_timer_start(timer, timer->timer_cb, rmt_ctx->listener_ctx->timeout, 0);
+    }
     remote_addr.addr = *addr;
     universal_address_to_string(&remote_addr, buf, 250);
 
@@ -246,7 +285,7 @@ static void launch_remote_progress(struct udp_listener_ctx_t *listener_ctx,
     remote_ctx->dst_addr = *dst_addr;
 
     loop = listener_ctx->udp.loop;
-    udp = &remote_ctx->udp;
+    udp = &remote_ctx->rmt_udp;
 
     uv_udp_init(loop, udp);
     udp->data = remote_ctx;
@@ -263,6 +302,12 @@ static void launch_remote_progress(struct udp_listener_ctx_t *listener_ctx,
     send_req->data = dup_data;
     uv_udp_send(send_req, udp, &sndbuf, 1, &u_dst_addr.addr, upd_remote_sent_cb);
     uv_udp_recv_start(udp, udp_uv_alloc_buffer, udp_remote_recv_cb);
+    {
+        uv_timer_t *timer = &remote_ctx->rmt_expire;
+        uv_timer_init(loop, timer);
+        timer->data = remote_ctx;
+        uv_timer_start(timer, udp_remote_timeout_cb, listener_ctx->timeout, 0);
+    }
 }
 
 static void 
@@ -348,7 +393,7 @@ udprelay_begin(uv_loop_t *loop,
         pr_err("[udp] bind() error");
     }
 
-    server_ctx->timeout = max(timeout, MIN_UDP_TIMEOUT);
+    server_ctx->timeout = (uint64_t)((timeout > 0) ? timeout : MIN_UDP_TIMEOUT);
     //server_ctx->connections = cstl_set_container_create(tunnel_ctx_compare_for_c_set, NULL);
 
     uv_udp_recv_start(&server_ctx->udp, udp_uv_alloc_buffer, udp_listener_recv_cb);
