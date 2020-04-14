@@ -324,7 +324,7 @@ const char * str_s5_result(enum s5_result result) {
 }
 
 #include "sockaddr_universal.h"
-uint8_t * build_udp_assoc_package(bool allow, const char *addr_str, int port, void*(*allocator)(size_t size), size_t *size) {
+uint8_t * s5_build_udp_assoc_package(bool allow, const char *addr_str, int port, void*(*allocator)(size_t size), size_t *size) {
     uint8_t *buf;
     size_t buf_len = 0;
     union sockaddr_universal addr = { 0 };
@@ -340,7 +340,7 @@ uint8_t * build_udp_assoc_package(bool allow, const char *addr_str, int port, vo
     buf = (uint8_t *) allocator(256);
     memset(buf, 0, 256);
 
-    if (convert_universal_address(addr_str, port, &addr) != 0) {
+    if (universal_address_from_string(addr_str, port, &addr) != 0) {
         return NULL;
     }
     ipV6 = (addr.addr.sa_family == AF_INET6);
@@ -439,4 +439,72 @@ uint8_t * s5_connect_response_package(const struct s5_ctx *parser, void*(*alloca
         *size = addr_size + 3;
     }
     return buf;
+}
+
+// =============================================================================
+// *
+// * SOCKS5 UDP Request / Response
+// * +----+------+------+----------+----------+----------+
+// * |RSV | FRAG | ATYP | DST.ADDR | DST.PORT |   DATA   |
+// * +----+------+------+----------+----------+----------+
+// * | 2  |  1   |  1   | Variable |    2     | Variable |
+// * +----+------+------+----------+----------+----------+
+// *
+const uint8_t * s5_parse_upd_package(const uint8_t *pkg, size_t len, struct socks5_address *dst_addr, size_t *frag_number, size_t *payload_len) {
+    const uint8_t *result = NULL;
+    do {
+        const uint8_t *rsv, *frag, *address;
+        size_t offset;
+        if (pkg==NULL || len<10 || dst_addr==NULL) {
+            break;
+        }
+        rsv = pkg;
+        if ( *((uint16_t *)rsv) != 0) {
+            break;
+        }
+        frag = pkg + sizeof(uint16_t);
+        if (frag_number) {
+            *frag_number = (size_t)(*frag);
+        }
+        offset = sizeof(uint16_t) + sizeof(uint8_t);
+        address = pkg + offset;
+        socks5_address_parse(address, len-offset, dst_addr);
+
+        offset += socks5_address_size(dst_addr);
+
+        result = pkg + offset;
+        if (payload_len) {
+            *payload_len = len - offset;
+        }
+    } while (false);
+    return result;
+}
+
+uint8_t * s5_build_udp_datagram(struct socks5_address *dst_addr, const uint8_t *payload, size_t payload_len, void*(*allocator)(size_t size), size_t *size) {
+    uint8_t *result = NULL;
+    do {
+        size_t total, addr_len;
+        if (dst_addr==NULL || allocator==NULL) {
+            break;
+        }
+
+        addr_len = socks5_address_size(dst_addr);
+
+        total = 2 + 1 + addr_len + payload_len;
+
+        result = (uint8_t *) allocator(total + 1);
+        if (result == NULL) {
+            break;
+        }
+        memset(result, 0, total + 1);
+
+        socks5_address_binary(dst_addr, result + 2 + 1, addr_len);
+
+        memcpy(result + 2 + 1 + addr_len, payload, payload_len);
+
+        if (size) {
+            *size = total;
+        }
+    } while (false);
+    return result;
 }

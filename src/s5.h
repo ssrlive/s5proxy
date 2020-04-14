@@ -81,9 +81,12 @@ int s5_select_auth(struct s5_ctx *cx, enum s5_auth_method method);
 
 const char * str_s5_result(enum s5_result result);
 
-uint8_t * build_udp_assoc_package(bool allow, const char *addr_str, int port, void*(*allocator)(size_t size), size_t *size);
+uint8_t * s5_build_udp_assoc_package(bool allow, const char *addr_str, int port, void*(*allocator)(size_t size), size_t *size);
 uint8_t * s5_address_package_create(const struct s5_ctx *parser, void*(*allocator)(size_t size), size_t *size);
 uint8_t * s5_connect_response_package(const struct s5_ctx *parser, void*(*allocator)(size_t size), size_t *size);
 
+struct socks5_address;
+const uint8_t * s5_parse_upd_package(const uint8_t *pkg, size_t len, struct socks5_address *dst_addr, size_t *frag_number, size_t *payload_len);
+uint8_t * s5_build_udp_datagram(struct socks5_address *dst_addr, const uint8_t *payload, size_t payload_len, void*(*allocator)(size_t size), size_t *size);
 
 #endif  /* __S5_H__ */

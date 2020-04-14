@@ -338,7 +338,7 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
         universal_address_to_string(&sockname, addr, sizeof(addr));
         port = universal_address_get_port(&sockname);
 
-        buf = build_udp_assoc_package(true, addr, port, &malloc, &len);
+        buf = s5_build_udp_assoc_package(true, addr, port, &malloc, &len);
         socket_write(incoming, buf, len);
         free(buf);
         ctx->state = session_udp_accoc;
@@ -542,7 +542,6 @@ static void do_launch_streaming(struct tunnel_ctx *tunnel) {
 static uint8_t* tunnel_extract_data(struct socket_ctx *socket, void*(*allocator)(size_t size), size_t *size) {
     struct tunnel_ctx *tunnel = socket->tunnel;
     struct s5_proxy_ctx *ctx = (struct s5_proxy_ctx *) tunnel->data;
-    struct buffer_t *buf = NULL;
     uint8_t *result = NULL;
     size_t len;
 
