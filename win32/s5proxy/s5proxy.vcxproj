@@ -32,6 +32,7 @@
     <ClCompile Include="..\..\src\main.c" />
     <ClCompile Include="..\..\src\s5.c" />
     <ClCompile Include="..\..\src\listener.c" />
+    <ClCompile Include="..\..\src\udprelay.c" />
     <ClCompile Include="..\src\getopt.c" />
     <ClCompile Include="..\src\getopt_long.c" />
   </ItemGroup>
@@ -41,6 +42,7 @@
     <ClInclude Include="..\..\src\dump_info.h" />
     <ClInclude Include="..\..\src\s5.h" />
     <ClInclude Include="..\..\src\sockaddr_universal.h" />
+    <ClInclude Include="..\..\src\udprelay.h" />
     <ClInclude Include="..\include\getopt.h" />
     <ClInclude Include="..\include\getopt_long.h" />
     <ClInclude Include="..\include\unistd.h" />

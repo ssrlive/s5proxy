@@ -51,9 +51,12 @@ struct server_config {
     bool fatal_error;
 };
 
+struct udp_listener_ctx_t;
+
 struct listener_ctx {
     unsigned int idle_timeout;  /* Connection idle timeout in ms. */
     uv_tcp_t tcp_handle;
+    struct udp_listener_ctx_t *udp_server;
 };
 
 struct tunnel_ctx;

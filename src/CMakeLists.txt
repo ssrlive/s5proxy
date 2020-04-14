@@ -18,6 +18,8 @@ set(SOURCE_FILES
         common.h
         dump_info.c
         dump_info.h
+        udprelay.c
+        udprelay.h
         svr_impl.c)
 
 if ((UNIX) AND (!APPLE))

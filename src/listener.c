@@ -25,6 +25,8 @@
 #include <string.h>
 #include "dump_info.h"
 #include "sockaddr_universal.h"
+#include "udprelay.h"
+#include "tunnel.h" /* for get_socket_port only */
 
 #ifndef INET6_ADDRSTRLEN
 # define INET6_ADDRSTRLEN 63
@@ -135,6 +137,7 @@ static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrin
 
     n = 0;
     for (ai = addrs; ai != NULL; ai = ai->ai_next) {
+        uint16_t port;
         if (ai->ai_family != AF_INET && ai->ai_family != AF_INET6) {
             continue;
         }
@@ -175,7 +178,15 @@ static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrin
             break;
         }
 
-        pr_info("listening on %s:%hu", addrbuf, cf->bind_port);
+        port = get_socket_port(&lx->tcp_handle);
+
+        pr_info("listening on %s:%hu", addrbuf, port);
+        {
+            lx->udp_server = udprelay_begin(loop,
+                cf->bind_host, port,
+                0, cf->idle_timeout);
+            udp_relay_set_recv_callback(lx->udp_server, &udp_on_recv_data);
+        }
         n += 1;
     }
 
