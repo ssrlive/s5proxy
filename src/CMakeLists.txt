@@ -20,6 +20,8 @@ set(SOURCE_FILES
         dump_info.h
         udprelay.c
         udprelay.h
+        web_request.c
+        web_request.h
         svr_impl.c)
 
 if ((UNIX) AND (!APPLE))
