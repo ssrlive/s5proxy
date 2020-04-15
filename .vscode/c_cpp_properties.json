@@ -8,7 +8,7 @@
             "defines": [],
             "compilerPath": "/usr/bin/clang",
             "cppStandard": "c++17",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+            "configurationProvider": "vector-of-bool.cmake-tools"
         }
     ],
     "version": 4

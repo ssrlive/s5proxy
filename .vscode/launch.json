@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/s5proxy",
+            "program": "${workspaceFolder}/build/src/s5proxy",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
