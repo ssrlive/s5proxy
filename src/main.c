@@ -67,8 +67,10 @@ int main(int argc, char **argv) {
     struct server_config *config;
     int err;
 
+#if defined(_MSC_VER)
     MEM_CHECK_BEGIN();
     onexit(_onexit_func);
+#endif
 
     set_app_name(argv[0]);
 

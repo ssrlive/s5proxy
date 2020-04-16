@@ -43,7 +43,7 @@ static void listen_incoming_connection_cb(uv_stream_t *server, int status);
 int listener_run(struct server_config *cf) {
     struct addrinfo hints;
     struct server_state *state;
-    int err;
+    int err = 0;
     uv_getaddrinfo_t *req;
     uv_loop_t *loop = NULL;
 
@@ -76,6 +76,7 @@ int listener_run(struct server_config *cf) {
         abort();
     }
 
+    uv_loop_close(loop);
     free(loop);
 
     free(state->config->bind_host);
