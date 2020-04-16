@@ -26,6 +26,25 @@
 #include "dump_info.h"
 #include "daemon_wrapper.h"
 
+#if defined(_MSC_VER)
+#ifndef _CRTDBG_MAP_ALLOC
+#define _CRTDBG_MAP_ALLOC
+#endif // _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
+#define MEM_CHECK_BEGIN() do { _CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF ); } while(0)
+#define MEM_CHECK_DUMP_LEAKS() do { _CrtDumpMemoryLeaks(); } while(0)
+#else
+#define MEM_CHECK_BEGIN() do { ; } while(0)
+#define MEM_CHECK_DUMP_LEAKS() do { ; } while(0)
+#endif
+
+int _onexit_func(void) {
+    MEM_CHECK_DUMP_LEAKS();
+    return 0;
+}
+
 #if HAVE_UNISTD_H
 #include <unistd.h>  /* getopt */
 #endif
@@ -47,6 +66,9 @@ static void usage(void);
 int main(int argc, char **argv) {
     struct server_config *config;
     int err;
+
+    MEM_CHECK_BEGIN();
+    onexit(_onexit_func);
 
     set_app_name(argv[0]);
 
