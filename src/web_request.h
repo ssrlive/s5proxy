@@ -3,6 +3,10 @@
 #include <uv.h>
 
 #define HTTP_REQUEST_HEADER "GET / HTTP/1.0\r\nHost: %s\r\n\r\n"
+#define CR "\r"
+#define LF "\n"
+#define CR_LF "\r\n"
+#define CR_LF_CR_LF "\r\n\r\n"
 
 typedef void (*recv_data_callback)(const uint8_t *data, size_t len, void *p);
 typedef void (*request_completion_callback)(int status, void *p);

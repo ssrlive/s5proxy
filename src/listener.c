@@ -27,6 +27,7 @@
 #include "sockaddr_universal.h"
 #include "udprelay.h"
 #include "tunnel.h" /* for get_socket_port only */
+#include "web_request.h"
 
 #ifndef INET6_ADDRSTRLEN
 # define INET6_ADDRSTRLEN 63
@@ -70,6 +71,8 @@ int listener_run(struct server_config *cf) {
         pr_err("getaddrinfo: %s", uv_strerror(err));
         return err;
     }
+
+    public_ip_of_this_machine(loop);
 
     /* Start the event loop.  Control continues in getaddrinfo_done_cb(). */
     if (uv_run(loop, UV_RUN_DEFAULT)) {
@@ -160,7 +163,7 @@ static void getaddrinfo_done_cb(uv_getaddrinfo_t *req, int status, struct addrin
         }
 
         lx = state->listeners + n;
-        lx->idle_timeout = state->config->idle_timeout;
+        lx->config = state->config;
         VERIFY(0 == uv_tcp_init(loop, &lx->tcp_handle));
 
         what = "uv_tcp_bind";
@@ -201,4 +204,29 @@ static void listen_incoming_connection_cb(uv_stream_t *server, int status) {
     lx = CONTAINER_OF(server, struct listener_ctx, tcp_handle);
 
     s5_tunnel_initialize(lx);
+}
+
+void web_recv_data_callback(const uint8_t *data, size_t len, void *p) {
+    const char *begin, *end;
+    if ((begin = strstr((const char *)data, CR_LF_CR_LF))) {
+        begin += strlen(CR_LF_CR_LF);
+        if ((end = strstr(begin, CR_LF)) == NULL) {
+            if ((end = strstr(begin, LF)) == NULL) {
+                end = begin + strlen(begin);
+            }
+        }
+        if (end - begin <= 15) {
+            // ip style: 222.222.222.222
+            memmove(p, begin, end-begin);
+        }
+    }
+}
+
+const char * public_ip_of_this_machine(uv_loop_t *loop) {
+    static char cached_public_ip[64] = { 0 };
+    if (strlen(cached_public_ip)) {
+        return cached_public_ip;
+    }
+    launch_web_request(loop, "icanhazip.com", 80, NULL, &web_recv_data_callback, cached_public_ip, NULL, NULL);
+    return NULL;
 }

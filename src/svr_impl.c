@@ -76,6 +76,7 @@ enum session_state {
 
 struct s5_proxy_ctx {
     struct s5_ctx *parser;  /* The SOCKS protocol parser. */
+    bool public_ip;
     enum session_state state;
 };
 
@@ -103,6 +104,7 @@ static void do_launch_streaming(struct tunnel_ctx *tunnel);
 int tunnel_count = 0;
 
 static bool _init_done_cb(struct tunnel_ctx *tunnel, void *p) {
+    struct listener_ctx *lx = (struct listener_ctx *)p;
     struct s5_proxy_ctx *ctx = (struct s5_proxy_ctx *) calloc(1, sizeof(*ctx));
     tunnel->data = ctx;
 
@@ -118,6 +120,7 @@ static bool _init_done_cb(struct tunnel_ctx *tunnel, void *p) {
 
     ctx->parser = s5_ctx_create();
     ctx->state = session_handshake;
+    ctx->public_ip = lx->config->public_ip;
 
     tunnel_count++;
 
@@ -128,7 +131,7 @@ static bool _init_done_cb(struct tunnel_ctx *tunnel, void *p) {
 void s5_tunnel_initialize(struct listener_ctx *lx) {
     uv_tcp_t *server = (uv_tcp_t *)&lx->tcp_handle;
     uv_loop_t *loop = lx->tcp_handle.loop;
-    tunnel_initialize(server, lx->idle_timeout, &_init_done_cb, NULL);
+    tunnel_initialize(server, lx->config->idle_timeout, &_init_done_cb, lx);
 }
 
 /* This is the core state machine that drives the client <-> upstream proxy.
@@ -327,18 +330,23 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
         // UDP ASSOCIATE requests
         size_t len = 0;
         uint8_t *buf;
+        const char *public_ip_p;
+        const char *target;
 
         union sockaddr_universal sockname;
         int namelen = sizeof(sockname);
         char addr[256] = { 0 };
         uint16_t port = 0;
 
+        public_ip_p = public_ip_of_this_machine(tunnel->listener->loop);
+
         VERIFY(0 == uv_tcp_getsockname(&incoming->handle.tcp, &sockname.addr, &namelen));
 
         universal_address_to_string(&sockname, addr, sizeof(addr));
         port = universal_address_get_port(&sockname);
 
-        buf = s5_build_udp_assoc_package(true, addr, port, &malloc, &len);
+        target = (ctx->public_ip && public_ip_p) ? public_ip_p : addr;
+        buf = s5_build_udp_assoc_package(true, target, port, &malloc, &len);
         socket_write(incoming, buf, len);
         free(buf);
         ctx->state = session_udp_accoc;

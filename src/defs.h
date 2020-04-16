@@ -46,22 +46,24 @@ typedef size_t uv_buf_len_t;
 struct server_config {
     char *bind_host;
     unsigned short bind_port;
-    unsigned int idle_timeout;
+    unsigned int idle_timeout; /* Connection idle timeout in ms. */
     bool daemon_flag;
+    bool public_ip;
     bool fatal_error;
 };
 
 struct udp_listener_ctx_t;
 
 struct listener_ctx {
-    unsigned int idle_timeout;  /* Connection idle timeout in ms. */
     uv_tcp_t tcp_handle;
+    struct server_config *config; // weak reference
     struct udp_listener_ctx_t *udp_server;
 };
 
 struct tunnel_ctx;
 
 /* listener.c */
+const char * public_ip_of_this_machine(uv_loop_t *loop);
 int listener_run(struct server_config *cf);
 bool can_auth_none(const uv_tcp_t *lx, const struct tunnel_ctx *cx);
 bool can_auth_passwd(const uv_tcp_t *lx, const struct tunnel_ctx *cx);

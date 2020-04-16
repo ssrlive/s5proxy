@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
 static void parse_opts(struct server_config *cf, int argc, char * const argv[]) {
     int opt;
 
-    while (-1 != (opt = getopt(argc, argv, "b:p:t:dh"))) {
+    while (-1 != (opt = getopt(argc, argv, "b:p:t:duh"))) {
         switch (opt) {
         case 'b':
             if (cf->bind_host) {
@@ -113,6 +113,9 @@ static void parse_opts(struct server_config *cf, int argc, char * const argv[]) 
             break;
         case 'd':
             cf->daemon_flag = true;
+            break;
+        case 'u':
+            cf->public_ip = true;
             break;
         case 'p':
             if (1 != sscanf(optarg, "%hu", &cf->bind_port)) {
@@ -140,7 +143,7 @@ static void parse_opts(struct server_config *cf, int argc, char * const argv[]) 
 static void usage(void) {
     printf("Usage:\n"
         "\n"
-        "  %s [-b <address>] [-d] [-h] [-t <timeout>] [-p <port>]\n"
+        "  %s [-b <address>] [-d] [-h] [-t <timeout>] [-p <port>] [-u]\n"
         "\n"
         "Options:\n"
         "\n"
@@ -150,6 +153,7 @@ static void usage(void) {
         "  -p <port>              Bind to this port number.  Default: 1080\n"
         "  -t <timeout>           Idle timeout.  Default: " DEFAULT_IDLE_TIMEOUT_STR " seconds\n"
         "  -d                     Run in background as a daemon.\n"
+        "  -u                     This host has a public IP.\n"
         "",
         get_app_name());
 }
