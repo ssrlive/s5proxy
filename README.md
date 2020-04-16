@@ -21,17 +21,17 @@ cmake .. && make
 # Usage
 
 ```bash
-s5proxy [-b <address>] [-d] [-h] [-t <timeout>] [-p <port>]
+s5proxy [-b <address>] [-d] [-h] [-t <timeout>] [-p <port>] [-u]
 
 Options:
 
-  -b <hostname|address>  Bind to this address or hostname.
-                         Default: "0.0.0.0"
+  -b <hostname|address>  Bind to this address or hostname.  Default: "0.0.0.0"
   -h                     Show this help message.
   -p <port>              Bind to this port number.  Default: 1080
   -t <timeout>           Idle timeout.  Default: 60
   -d                     Run in background as a daemon.
+  -u                     This host has a public IP.
 
 ```
-for example:  `/s5proxy/src/s5proxy -p 1080 -d`
+For example:  `./s5proxy -p 1080 -d`
 
