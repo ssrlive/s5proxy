@@ -333,7 +333,7 @@ static void do_req_parse(struct tunnel_ctx *tunnel) {
         char addr[256] = { 0 };
         uint16_t port = 0;
 
-        VERIFY(0 == uv_tcp_getsockname(&incoming->handle.tcp, (struct sockaddr *)&sockname, &namelen));
+        VERIFY(0 == uv_tcp_getsockname(&incoming->handle.tcp, &sockname.addr, &namelen));
 
         universal_address_to_string(&sockname, addr, sizeof(addr));
         port = universal_address_get_port(&sockname);
