@@ -1,6 +1,11 @@
 s5proxy
 ===============
-A SOCKS5 proxy powered by libuv
+A SOCKS5 proxy server powered by libuv
+
+# Features
+- [x] Full implimentation without user name / password 
+- [x] UDP associate supported.
+- [x] Public IP deployment supported.
 
 # How to build in ubuntu
 ```bash
