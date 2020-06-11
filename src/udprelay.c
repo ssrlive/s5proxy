@@ -97,6 +97,7 @@ struct udp_remote_ctx_t {
     struct socks5_address src_addr;
     struct socks5_address dst_addr;
     struct udp_listener_ctx_t *listener_ctx;
+    bool shuting_down;
     int ref_count;
 };
 
@@ -105,6 +106,9 @@ static void udp_remote_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* 
 static void udp_remote_timeout_cb(uv_timer_t* handle);
 
 static void udp_remote_shutdown(struct udp_remote_ctx_t *ctx);
+
+static void udp_remote_ctx_add_ref(struct udp_remote_ctx_t* ctx);
+static void udp_remote_ctx_release(struct udp_remote_ctx_t* ctx);
 
 static void udp_uv_alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     char *tmp = (char *) calloc(suggested_size, sizeof(char));
@@ -181,17 +185,6 @@ udp_create_listener(uv_loop_t *loop, const char *host, uint16_t port, uv_udp_t *
     return server_sock;
 }
 
-void udp_close_cb(uv_handle_t* handle) {
-    free(handle);
-}
-
-static void udp_send_done_cb(uv_udp_send_t* req, int status) {
-    uint8_t *buf = (uint8_t *)req->data;
-    uv_close((uv_handle_t*)req->handle, &udp_close_cb);
-    free(buf);
-    free(req);
-}
-
 void upd_remote_sent_cb(uv_udp_send_t* req, int status) {
     uint8_t *dup_data = (uint8_t *) req->data;
     free(dup_data);
@@ -200,28 +193,50 @@ void upd_remote_sent_cb(uv_udp_send_t* req, int status) {
 
 static void udp_remote_close_done_cb(uv_handle_t* handle) {
     struct udp_remote_ctx_t *ctx = (struct udp_remote_ctx_t *)handle->data;
-    --ctx->ref_count;
-    if (ctx->ref_count <= 0) {
-        free(ctx);
-    }
+    udp_remote_ctx_release(ctx);
 }
 
 static void udp_remote_shutdown(struct udp_remote_ctx_t *ctx) {
     if (ctx == NULL) {
         return;
     }
+
+    if (ctx->shuting_down) {
+        return;
+    }
+    ctx->shuting_down = true;
+
     //cstl_set_container_remove(ctx->server_ctx->connections, ctx);
     {
         uv_timer_t *timer = &ctx->rmt_expire;
         uv_timer_stop(timer);
         uv_close((uv_handle_t *)timer, udp_remote_close_done_cb);
-        ++ctx->ref_count;
+        udp_remote_ctx_add_ref(ctx);
     }
     {
         uv_udp_t *udp = &ctx->rmt_udp;
         uv_udp_recv_stop(udp);
         uv_close((uv_handle_t *)udp, udp_remote_close_done_cb);
-        ++ctx->ref_count;
+        udp_remote_ctx_add_ref(ctx);
+    }
+}
+
+static void udp_remote_ctx_add_ref(struct udp_remote_ctx_t* ctx) {
+    ++ctx->ref_count;
+}
+
+static void udp_remote_ctx_release(struct udp_remote_ctx_t* ctx) {
+    --ctx->ref_count;
+    if (ctx->ref_count <= 0) {
+        free(ctx);
+    }
+}
+
+static void udp_remote_ctx_restart_timer(struct udp_remote_ctx_t* ctx) {
+    if (ctx && ctx->shuting_down==false) {
+        uv_timer_t* timer = &ctx->rmt_expire;
+        uv_timer_stop(timer);
+        uv_timer_start(timer, timer->timer_cb, ctx->listener_ctx->timeout, 0);
     }
 }
 
@@ -253,11 +268,8 @@ void udp_remote_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf0, c
             udp_remote_shutdown(rmt_ctx);
             break;
         }
-        {
-            uv_timer_t *timer = &rmt_ctx->rmt_expire;
-            uv_timer_stop(timer);
-            uv_timer_start(timer, timer->timer_cb, rmt_ctx->listener_ctx->timeout, 0);
-        }
+
+        udp_remote_ctx_restart_timer(rmt_ctx);
 
         socks5_address_to_universal(&rmt_ctx->src_addr, &src_addr);
 
@@ -312,7 +324,9 @@ static void launch_remote_progress(struct udp_listener_ctx_t *listener_ctx,
         uv_timer_init(loop, timer);
         timer->data = remote_ctx;
         uv_timer_start(timer, udp_remote_timeout_cb, listener_ctx->timeout, 0);
+        uv_timer_stop(timer);
     }
+    udp_remote_ctx_restart_timer(remote_ctx);
 }
 
 static void 
