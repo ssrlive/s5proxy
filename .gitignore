@@ -1,5 +1,8 @@
 /build/
 /nbproject/
+out/
+.vs/
+CMakeSettings.json
 
 *.vcxproj.user
 *.VC.opendb

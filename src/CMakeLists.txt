@@ -34,6 +34,12 @@ endif()
 
 include_directories(${libuv_include_dirs})
 
+IF(MSVC)
+  include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../win32/include )
+  LIST(APPEND SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/../win32/src/getopt.c)
+  LIST(APPEND SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/../win32/src/getopt_long.c)
+ENDIF(MSVC)
+
 add_executable(s5proxy ${SOURCE_FILES})
 
 set (s5_lib_common
