@@ -2,6 +2,7 @@
 /nbproject/
 out/
 .vs/
+.vscode/
 CMakeSettings.json
 
 *.vcxproj.user
