@@ -308,7 +308,6 @@ static void launch_remote_progress(struct udp_listener_ctx_t *listener_ctx,
     udp->data = remote_ctx;
 
     socks5_address_to_universal(dst_addr, &u_dst_addr);
-    uv_udp_bind(udp, &u_dst_addr.addr, 0);
 
     dup_data = (uint8_t *) calloc(len+1, sizeof(*dup_data));
     memcpy(dup_data, data, len);
