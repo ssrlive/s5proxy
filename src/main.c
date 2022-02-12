@@ -53,8 +53,8 @@ int _onexit_func(void) {
 #define DEFAULT_BIND_PORT     1080
 
 #if defined(NDEBUG)
-#define DEFAULT_IDLE_TIMEOUT  (10 * 1000)
-#define DEFAULT_IDLE_TIMEOUT_STR  "10"
+#define DEFAULT_IDLE_TIMEOUT  (6 * 1000)
+#define DEFAULT_IDLE_TIMEOUT_STR  "6"
 #else
 #define DEFAULT_IDLE_TIMEOUT  (60 * 1000)
 #define DEFAULT_IDLE_TIMEOUT_STR  "60"

@@ -97,6 +97,7 @@ struct udp_remote_ctx_t {
     struct socks5_address src_addr;
     struct socks5_address dst_addr;
     struct udp_listener_ctx_t *listener_ctx;
+    uint8_t *request_data;
     bool shuting_down;
     int ref_count;
 };
@@ -185,10 +186,24 @@ udp_create_listener(uv_loop_t *loop, const char *host, uint16_t port, uv_udp_t *
     return server_sock;
 }
 
-void upd_remote_sent_cb(uv_udp_send_t* req, int status) {
-    uint8_t *dup_data = (uint8_t *) req->data;
-    free(dup_data);
+void udp_remote_sent_cb(uv_udp_send_t* req, int status) {
+    uint8_t *udp_data = (uint8_t *) req->data;
+    free(udp_data);
     free(req);
+}
+
+void udp_request_incoming_cb(uv_udp_send_t* req, int status) {
+    uv_udp_t *listener_udp = req->handle;
+    struct udp_remote_ctx_t *rmt_ctx = (struct udp_remote_ctx_t*)req->data;
+    ASSERT(rmt_ctx);
+    ASSERT(&rmt_ctx->listener_ctx->udp == listener_udp);
+
+    free(rmt_ctx->request_data);
+    rmt_ctx->request_data = NULL;
+
+    free(req);
+
+    udp_remote_shutdown(rmt_ctx);
 }
 
 static void udp_remote_close_done_cb(uv_handle_t* handle) {
@@ -228,6 +243,7 @@ static void udp_remote_ctx_add_ref(struct udp_remote_ctx_t* ctx) {
 static void udp_remote_ctx_release(struct udp_remote_ctx_t* ctx) {
     --ctx->ref_count;
     if (ctx->ref_count <= 0) {
+        pr_info("[udp] session %p terminated", ctx);
         free(ctx);
     }
 }
@@ -251,15 +267,18 @@ static void udp_remote_timeout_cb(uv_timer_t* handle) {
 void udp_remote_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf0, const struct sockaddr* addr, unsigned flags) {
     union sockaddr_universal src_addr = { 0 };
     uv_udp_send_t *send_req;
-    uint8_t *dup_data;
+    uint8_t *udp_data;
     size_t len = 0;
     uv_buf_t sndbuf;
     struct udp_remote_ctx_t *rmt_ctx;
+    uv_udp_t *listener_udp;
 
     do {
         rmt_ctx = CONTAINER_OF(handle, struct udp_remote_ctx_t, rmt_udp);
         ASSERT(rmt_ctx);
         ASSERT(rmt_ctx == handle->data);
+
+        listener_udp = &rmt_ctx->listener_ctx->udp;
 
         if (nread == 0) {
             break;
@@ -273,12 +292,13 @@ void udp_remote_recv_cb(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf0, c
 
         socks5_address_to_universal(&rmt_ctx->src_addr, &src_addr);
 
-        dup_data = s5_build_udp_datagram(&rmt_ctx->src_addr, (const uint8_t *) buf0->base, (size_t) nread, &malloc, &len);
-        sndbuf = uv_buf_init((char *) dup_data, (unsigned int) len);
+        udp_data = s5_build_udp_datagram(&rmt_ctx->src_addr, (const uint8_t *) buf0->base, (size_t) nread, &malloc, &len);
+        sndbuf = uv_buf_init((char *) udp_data, (unsigned int) len);
 
         send_req = (uv_udp_send_t *) calloc(1, sizeof(*send_req));
-        send_req->data = dup_data;
-        uv_udp_send(send_req, &rmt_ctx->listener_ctx->udp, &sndbuf, 1, &src_addr.addr, upd_remote_sent_cb);
+        rmt_ctx->request_data = udp_data;
+        send_req->data = rmt_ctx;
+        uv_udp_send(send_req, listener_udp, &sndbuf, 1, &src_addr.addr, udp_request_incoming_cb);
     } while (0);
     udp_uv_release_buffer((uv_buf_t *)buf0);
 }
@@ -289,7 +309,7 @@ static void launch_remote_progress(struct udp_listener_ctx_t *listener_ctx,
     const uint8_t*data, size_t len)
 {
     uv_udp_send_t *send_req;
-    uint8_t *dup_data;
+    uint8_t *udp_data;
     uv_buf_t sndbuf;
     union sockaddr_universal u_dst_addr = { 0 };
     uv_loop_t *loop;
@@ -309,14 +329,14 @@ static void launch_remote_progress(struct udp_listener_ctx_t *listener_ctx,
 
     socks5_address_to_universal(dst_addr, &u_dst_addr);
 
-    dup_data = (uint8_t *) calloc(len+1, sizeof(*dup_data));
-    memcpy(dup_data, data, len);
+    udp_data = (uint8_t *) calloc(len+1, sizeof(*udp_data));
+    memcpy(udp_data, data, len);
 
-    sndbuf = uv_buf_init((char*)dup_data, (unsigned int)len);
+    sndbuf = uv_buf_init((char*)udp_data, (unsigned int)len);
 
     send_req = (uv_udp_send_t *) calloc(1, sizeof(*send_req));
-    send_req->data = dup_data;
-    uv_udp_send(send_req, udp, &sndbuf, 1, &u_dst_addr.addr, upd_remote_sent_cb);
+    send_req->data = udp_data;
+    uv_udp_send(send_req, udp, &sndbuf, 1, &u_dst_addr.addr, udp_remote_sent_cb);
     uv_udp_recv_start(udp, udp_uv_alloc_buffer, udp_remote_recv_cb);
     {
         uv_timer_t *timer = &remote_ctx->rmt_expire;
