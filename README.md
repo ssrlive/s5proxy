@@ -16,9 +16,8 @@ apt-get -f install -y
 apt-get update -y
 apt-get upgrade -y
 
-git clone https://github.com/ssrlive/s5proxy.git
+git clone --recursive https://github.com/ssrlive/s5proxy.git
 cd s5proxy
-git submodule update --init
 mkdir build && cd build
 cmake .. && make
 ```

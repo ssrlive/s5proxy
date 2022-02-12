@@ -15,7 +15,8 @@ project(${PROJECT_NAME})
 
 set(VERSION 2.5.6)
 
-
+option(LIBUV_BUILD_TESTS "LIBUV_BUILD_TESTS" OFF)
+option(LIBUV_BUILD_BENCH "LIBUV_BUILD_BENCH" OFF)
 add_subdirectory(depends/libuv)
 add_subdirectory(src)
 
