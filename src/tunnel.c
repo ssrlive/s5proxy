@@ -176,6 +176,7 @@ void tunnel_process_streaming(struct tunnel_ctx *tunnel, struct socket_ctx *sock
         socket_write(write_target, buffer, len);
     }
     free(buffer);
+    (void)ctx;
 }
 
 //

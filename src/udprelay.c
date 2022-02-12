@@ -465,5 +465,6 @@ void udp_on_recv_data(struct udp_listener_ctx_t *udp_ctx, const union sockaddr_u
     buffer_replace(ctx->udp_data, data);
     //do_next(tunnel, socket);
     */
+    (void)loop;
 }
 

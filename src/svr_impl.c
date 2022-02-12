@@ -132,6 +132,7 @@ void s5_tunnel_initialize(struct listener_ctx *lx) {
     uv_tcp_t *server = (uv_tcp_t *)&lx->tcp_handle;
     uv_loop_t *loop = lx->tcp_handle.loop;
     tunnel_initialize(server, lx->config->idle_timeout, &_init_done_cb, lx);
+    (void)loop;
 }
 
 /* This is the core state machine that drives the client <-> upstream proxy.
@@ -182,6 +183,7 @@ static void do_next(struct tunnel_ctx *tunnel, struct socket_ctx *socket) {
     default:
         UNREACHABLE();
     }
+    (void)outgoing;
 }
 
 static void do_handshake(struct tunnel_ctx *tunnel, struct socket_ctx *socket) {
@@ -562,6 +564,8 @@ static uint8_t* tunnel_extract_data(struct socket_ctx *socket, void*(*allocator)
     *size = len;
     result = (uint8_t *)allocator(len + 1);
     memcpy(result, socket->buf->base, len);
+
+    (void)ctx;
 
     return result;
 }

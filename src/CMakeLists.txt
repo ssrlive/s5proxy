@@ -24,8 +24,8 @@ set(SOURCE_FILES
         web_request.h
         svr_impl.c)
 
-if ((UNIX) AND (!APPLE))
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
+if ((UNIX) AND (NOT APPLE))
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -pthread")
 endif()
 
 if ((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Android"))
