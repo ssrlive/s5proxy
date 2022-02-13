@@ -204,6 +204,7 @@ void udp_request_incoming_cb(uv_udp_send_t* req, int status) {
     free(req);
 
     udp_remote_shutdown(rmt_ctx);
+    (void)listener_udp;
 }
 
 static void udp_remote_close_done_cb(uv_handle_t* handle) {
