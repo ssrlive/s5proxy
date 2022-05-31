@@ -15,6 +15,11 @@ project(${PROJECT_NAME})
 
 set(VERSION 2.5.6)
 
+if (MSVC)
+add_compile_options(/wd4996)
+add_definitions("-D _CRT_SECURE_NO_WARNINGS -D _WINSOCK_DEPRECATED_NO_WARNINGS -D _CRTDBG_MAP_ALLOC")
+endif()
+
 option(LIBUV_BUILD_TESTS "LIBUV_BUILD_TESTS" OFF)
 option(LIBUV_BUILD_BENCH "LIBUV_BUILD_BENCH" OFF)
 add_subdirectory(depends/libuv)
